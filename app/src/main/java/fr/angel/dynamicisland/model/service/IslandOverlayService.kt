@@ -34,6 +34,8 @@ import fr.angel.dynamicisland.plugins.PluginManager
 import fr.angel.dynamicisland.ui.island.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 
 class IslandOverlayService : AccessibilityService(), PluginHost {
@@ -49,6 +51,13 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
 	}
 
 	private lateinit var settingsPreferences: SharedPreferences
+    private var overlayWindowManager: WindowManager? = null
+    private var overlayView: ComposeView? = null
+    private var overlayLifecycle: MyLifecycleOwner? = null
+    private var activeRecomposer: Recomposer? = null
+    private var recompositionScope: CoroutineScope? = null
+    private var receiverRegistered = false
+    private var cleanedUp = false
 
 	// State of the overlay
 	var islandState : IslandState by mutableStateOf(IslandViewState.Closed)
@@ -90,6 +99,7 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
 
 	override fun onServiceConnected() {
 		super.onServiceConnected()
+        cleanedUp = false
 		setTheme(R.style.Theme_DynamicIsland)
 		instance = this
 		settingsPreferences = getSharedPreferences(SETTINGS_KEY, Context.MODE_PRIVATE)
@@ -100,21 +110,24 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
 			addAction(SETTINGS_THEME_INVERTED)
 			addAction(ACTION_SCREEN_ON)
 			addAction(ACTION_SCREEN_OFF)
-		}, RECEIVER_EXPORTED)
+		}, RECEIVER_NOT_EXPORTED)
+        receiverRegistered = true
 
 		// Setup plugins (check if they are enabled)
+		ExportedPlugins.setupPermissions(this)
 		pluginManager = PluginManager(this, this)
-		pluginManager.initialize()
 
 		// Setup
 		init()
 
 		val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        overlayWindowManager = windowManager
 		showOverlay(windowManager, params)
 	}
 
 	fun init() {
-		// Initialize the plugins
+		// Re-check notification permission and reconcile plugins without duplicate receivers.
+        ExportedPlugins.setupPermissions(this)
 		pluginManager.initialize()
 
 		// Setup inverted theme
@@ -128,8 +141,7 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
 		params: WindowManager.LayoutParams
 	) {
 		val composeView = ComposeView(this)
-		// Add effects when notification received, swiped, etc.
-		val composeEffectView = ComposeView(this)
+		// Compose is hosted in a managed overlay window.
 		composeView.setContent {
 			// Listen for plugin changes
 			LaunchedEffect(pluginManager.activePlugins.firstOrNull()) {
@@ -172,14 +184,19 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
 		val lifecycleOwner = MyLifecycleOwner()
 		lifecycleOwner.performRestore(null)
 		lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+        lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        lifecycleOwner.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        overlayLifecycle = lifecycleOwner
 		composeView.setViewTreeLifecycleOwner(lifecycleOwner)
 		composeView.setViewTreeSavedStateRegistryOwner(lifecycleOwner)
 		composeView.setViewTreeViewModelStoreOwner(viewModelStoreOwner)
 
 		// Make recomposition happen on the UI thread
 		val coroutineContext = AndroidUiDispatcher.CurrentThread
-		val runRecomposeScope = CoroutineScope(coroutineContext)
+		val runRecomposeScope = CoroutineScope(SupervisorJob() + coroutineContext)
+        recompositionScope = runRecomposeScope
 		val recomposer = Recomposer(coroutineContext)
+        activeRecomposer = recomposer
 		composeView.compositionContext = recomposer
 		runRecomposeScope.launch {
 			recomposer.runRecomposeAndApplyChanges()
@@ -187,12 +204,33 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
 
 		// Add the view to the window
 		windowManager.addView(composeView, params)
+        overlayView = composeView
 	}
 
 	override fun onDestroy() {
-		super.onDestroy()
-		pluginManager.onDestroy()
-	}
+        cleanup()
+        super.onDestroy()
+    }
+
+    private fun cleanup() {
+        if (cleanedUp) return
+        cleanedUp = true
+        if (receiverRegistered) {
+            runCatching { unregisterReceiver(mBroadcastReceiver) }
+            receiverRegistered = false
+        }
+        if (::pluginManager.isInitialized) pluginManager.onDestroy()
+        overlayView?.let { view -> runCatching { overlayWindowManager?.removeViewImmediate(view) } }
+        overlayView = null
+        overlayWindowManager = null
+        activeRecomposer?.close()
+        activeRecomposer = null
+        recompositionScope?.cancel()
+        recompositionScope = null
+        overlayLifecycle?.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        overlayLifecycle = null
+        instance = null
+    }
 
 	fun expand() { islandState = IslandViewState.Expanded(configuration = resources.configuration) }
 	fun shrink() { islandState = IslandViewState.Opened }
@@ -214,13 +252,16 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
 	}
 
 	override fun onUnbind(intent: Intent?): Boolean {
-		instance = null
+        cleanup()
 		return super.onUnbind(intent)
 	}
 
 	override fun onConfigurationChanged(newConfig: Configuration) {
 		super.onConfigurationChanged(newConfig)
 		Island.isInLandscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
+        if (islandState is IslandViewState.Expanded) {
+            islandState = IslandViewState.Expanded(newConfig)
+        }
 	}
 
 	override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
