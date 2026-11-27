@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.compose.runtime.mutableStateListOf
+import androidx.core.content.ContextCompat
 import fr.angel.dynamicisland.island.IslandSettings
 import fr.angel.dynamicisland.model.ACTION_CLOSE
 import fr.angel.dynamicisland.model.ACTION_OPEN_CLOSE
@@ -52,13 +53,14 @@ class NotificationService : NotificationListenerService() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        registerReceiver(
+        ContextCompat.registerReceiver(
+            this,
             actionReceiver,
             IntentFilter().apply {
                 addAction(ACTION_OPEN_CLOSE)
                 addAction(ACTION_CLOSE)
             },
-            RECEIVER_NOT_EXPORTED
+            ContextCompat.RECEIVER_NOT_EXPORTED
         )
     }
 

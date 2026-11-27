@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.AndroidUiDispatcher
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.compositionContext
 import androidx.lifecycle.*
+import androidx.core.content.ContextCompat
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import fr.angel.dynamicisland.R
 import fr.angel.dynamicisland.island.Island
@@ -105,12 +106,12 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
 		settingsPreferences = getSharedPreferences(SETTINGS_KEY, Context.MODE_PRIVATE)
 
 		// Register broadcast receiver
-		registerReceiver(mBroadcastReceiver, IntentFilter().apply {
+		ContextCompat.registerReceiver(this, mBroadcastReceiver, IntentFilter().apply {
 			addAction(SETTINGS_CHANGED)
 			addAction(SETTINGS_THEME_INVERTED)
 			addAction(ACTION_SCREEN_ON)
 			addAction(ACTION_SCREEN_OFF)
-		}, RECEIVER_NOT_EXPORTED)
+		}, ContextCompat.RECEIVER_NOT_EXPORTED)
         receiverRegistered = true
 
 		// Setup plugins (check if they are enabled)

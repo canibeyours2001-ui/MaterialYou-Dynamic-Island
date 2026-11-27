@@ -1,7 +1,7 @@
 name: Android CI
 on:
   push:
-    branches: [main, feat/dynamic-island-next-gen]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:

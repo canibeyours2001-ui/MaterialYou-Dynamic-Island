@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Context.INPUT_METHOD_SERVICE
 import android.content.Intent
 import android.content.IntentFilter
+import androidx.core.content.ContextCompat
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -131,7 +132,7 @@ class NotificationPlugin(
 		val filter = IntentFilter()
 		filter.addAction(NOTIFICATION_POSTED)
 		filter.addAction(NOTIFICATION_REMOVED)
-		context.registerReceiver(mBroadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+		ContextCompat.registerReceiver(context, mBroadcastReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
 	}
 
 	@OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
