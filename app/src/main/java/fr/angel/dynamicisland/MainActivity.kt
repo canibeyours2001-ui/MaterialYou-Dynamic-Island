@@ -50,6 +50,13 @@ class MainActivity : ComponentActivity() {
 
 		settingsPreferences = getSharedPreferences(SETTINGS_KEY, Context.MODE_PRIVATE)
 
+        // Navigation is a side effect; do not start an activity from a composition.
+        if (!settingsPreferences.getBoolean(DISCLOSURE_ACCEPTED, false)) {
+            startActivity(Intent(this, DisclosureActivity::class.java))
+            finish()
+            return
+        }
+
 		WindowCompat.setDecorFitsSystemWindows(window, false)
 
 		// Invert theme in app
@@ -64,14 +71,6 @@ class MainActivity : ComponentActivity() {
 			Theme.instance.Init()
 			IslandSettings.instance.loadSettings(this)
 
-			val disclosureAccepted by remember { mutableStateOf(settingsPreferences.getBoolean(
-				DISCLOSURE_ACCEPTED, false)
-			) }
-
-			if (!disclosureAccepted) {
-				startActivity(Intent(this, DisclosureActivity::class.java))
-				finish()
-			}
 
 			DynamicIslandTheme(
 				darkTheme = Theme.instance.isDarkTheme,

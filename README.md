@@ -6,6 +6,11 @@
 | [![Stable Release](https://img.shields.io/github/release/Angel-Studio/Material-You-Dynamic-Island.svg?style=for-the-badge&maxAge=3600&label=DOWNLOAD)](https://github.com/Angel-Studio/Material-You-Dynamic-Island/releases) | [![Pre-Release)](https://img.shields.io/github/v/release/Angel-Studio/Material-You-Dynamic-Island?include_prereleases&label=DOWNLOAD&style=for-the-badge)](https://github.com/Angel-Studio/Material-You-Dynamic-Island/releases) | [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/8NfBrxKs4T) | [![Play Store](https://img.shields.io/badge/Google_Play-414141?style=for-the-badge&logo=google-play&logoColor=white)](https://play.google.com/store/apps/dev?id=8686550764558677121&gl=FR) | [![Ko-Fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/angelstudiofr) |
 
 # <img src="./.github/readme-images/app-icon.png" width="40"> Material You - Dynamic Island
+
+> **Development fork:** [canibeyours2001-ui/MaterialYou-Dynamic-Island](https://github.com/canibeyours2001-ui/MaterialYou-Dynamic-Island). Work in progress. **No signed/stable APK has been verified or published by this fork.** The original project's distribution license and signing-key continuity require confirmation before a public release.
+
+**[Check release downloads](https://github.com/canibeyours2001-ui/MaterialYou-Dynamic-Island/releases)** · [Build checks](https://github.com/canibeyours2001-ui/MaterialYou-Dynamic-Island/actions/workflows/android-ci.yml) · [Audit and roadmap](docs/AUDIT.md) · [Secure release guide](docs/RELEASING.md)
+
 ### <img src="https://3.bp.blogspot.com/-VVp3WvJvl84/X0Vu6EjYqDI/AAAAAAAAPjU/ZOMKiUlgfg8ok8DY8Hc-ocOvGdB0z86AgCLcBGAsYHQ/s1600/jetpack%2Bcompose%2Bicon_RGB.png" height="32"> Built with Jetpack Compose
 Material You Dynamic Island is a free Dynamic Island for Android API 31 (Android 12) and above.
 

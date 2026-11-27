@@ -81,9 +81,7 @@ class BatteryPlugin(
 				val batteryLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
 				val maxBatteryLevel = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
 				// Set battery percent
-				if (batteryLevel >= 0 && maxBatteryLevel > 0) {
-                    batteryPercent = (batteryLevel * 100 / maxBatteryLevel).coerceIn(0, 100)
-                }
+				BatteryPercent.calculate(batteryLevel, maxBatteryLevel)?.let { batteryPercent = it }
 			} else {
 				host?.requestDismiss(this@BatteryPlugin)
 			}
