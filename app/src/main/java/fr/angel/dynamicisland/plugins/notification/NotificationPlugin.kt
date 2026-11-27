@@ -400,7 +400,6 @@ class NotificationPlugin(
 		val context = host as? Context ?: return
 		val intent = Intent(ACTION_OPEN_CLOSE).setPackage(context.packageName)
 		intent.putExtra("key", meta.statusBarNotification?.key)
-                                        setPackage(context.packageName)
 		context.sendBroadcast(intent)
 	}
 
