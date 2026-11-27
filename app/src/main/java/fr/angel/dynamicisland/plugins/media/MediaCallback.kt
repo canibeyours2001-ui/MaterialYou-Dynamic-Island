@@ -36,6 +36,7 @@ class MediaCallback(
 		if (state.state == PlaybackState.STATE_PLAYING) {
 			handler.removeCallbacksAndMessages(null)
 		} else {
+            handler.removeCallbacksAndMessages(null)
 			handler.postDelayed ({
 				context.removeMedia(mediaController)
 			}, 60000)
@@ -56,9 +57,14 @@ class MediaCallback(
 		context.removeMedia(mediaController)
 	}
 
+    fun dispose() {
+        handler.removeCallbacksAndMessages(null)
+        mediaController.unregisterCallback(this)
+    }
+
 	private fun updateMediaStruct(addPlugin: Boolean = true) {
-		mediaStruct.title.value = (mediaMetadata.getText(MediaMetadata.METADATA_KEY_TITLE) ?: "") as String
-		mediaStruct.artist.value = (mediaMetadata.getText(MediaMetadata.METADATA_KEY_ARTIST) ?: "") as String
+		mediaStruct.title.value = (mediaMetadata.getText(MediaMetadata.METADATA_KEY_TITLE) ?: "").toString()
+		mediaStruct.artist.value = (mediaMetadata.getText(MediaMetadata.METADATA_KEY_ARTIST) ?: "").toString()
 		mediaStruct.cover.value = mediaMetadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
 		mediaStruct.duration.value = mediaMetadata.getLong(MediaMetadata.METADATA_KEY_DURATION)
 

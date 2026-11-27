@@ -90,7 +90,7 @@ class MediaSessionPlugin(
             if (controllers != null) {
                 for (controller in controllers) {
                     // Cancel if already exists
-                    if (callbackMap[controller.packageName] != null) return@OnActiveSessionsChangedListener
+                    if (callbackMap[controller.packageName] != null) continue
 
                     // Create callback for this controller and add it to the map of callbacks
                     val callback = MediaCallback(controller, this)
@@ -101,7 +101,7 @@ class MediaSessionPlugin(
         }
 
     fun removeMedia(mediaController: MediaController) {
-        callbackMap.remove(mediaController.packageName)
+        callbackMap.remove(mediaController.packageName)?.dispose()
         if (callbackMap.isEmpty()) {
             host?.requestDismiss(this)
         }
@@ -161,7 +161,7 @@ class MediaSessionPlugin(
             elapsed = controller.playbackState?.position ?: 0
             duration = controller.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0
 
-            songPosition = (elapsed / duration.toFloat()) * 100
+            songPosition = if (duration > 0) (elapsed / duration.toFloat() * 100).coerceIn(0f, 100f) else 0f
         }
 
         with(sharedTransitionScope) {
@@ -329,6 +329,8 @@ class MediaSessionPlugin(
         if (!::mediaSessionManager.isInitialized) return
         // Unregister the listener for active sessions
         mediaSessionManager.removeOnActiveSessionsChangedListener(listenerForActiveSessions)
+        callbackMap.values.toList().forEach { it.dispose() }
+        callbackMap.clear()
     }
 
     @Composable

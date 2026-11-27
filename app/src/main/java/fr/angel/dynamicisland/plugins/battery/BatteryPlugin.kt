@@ -73,7 +73,7 @@ class BatteryPlugin(
 		override fun onReceive(context: Context, intent: Intent) {
 			// Get battery status extra
 			val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
-			val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING
+			val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
 
 			// If charging, add plugin else remove it
 			if (isCharging) {
