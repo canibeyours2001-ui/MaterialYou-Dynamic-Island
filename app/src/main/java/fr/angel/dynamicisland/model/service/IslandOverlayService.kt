@@ -8,7 +8,6 @@ import android.content.Intent.ACTION_SCREEN_ON
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import kotlin.math.roundToInt
-import android.util.Log
 import android.view.*
 import android.view.WindowManager.LayoutParams.*
 import android.view.accessibility.AccessibilityEvent
@@ -27,6 +26,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import fr.angel.dynamicisland.R
 import fr.angel.dynamicisland.island.Island
 import fr.angel.dynamicisland.island.IslandState
+import fr.angel.dynamicisland.island.IslandSettings
 import fr.angel.dynamicisland.island.IslandViewState
 import fr.angel.dynamicisland.model.*
 import fr.angel.dynamicisland.plugins.BasePlugin
@@ -179,7 +179,6 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
         // TODO: Find a way to detect when a click is performed outside of the overlay (to close it)
         /*composeView.setOnTouchListener { view: View?, event: MotionEvent ->
             if (event.action == MotionEvent.ACTION_DOWN) {
-                Log.d("OverlayService", "Touch event")
             }
             false
         }*/

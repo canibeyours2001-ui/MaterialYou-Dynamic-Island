@@ -108,10 +108,13 @@ jobs:
             ./gradlew --no-daemon :app:connectedDebugAndroidTest
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb logcat -c
-            adb shell am start -n fr.angel.dynamicisland/.MainActivity
+            mkdir -p emulator-artifacts
+            adb shell am force-stop fr.angel.dynamicisland
+            adb shell am start -W -n fr.angel.dynamicisland/.MainActivity | tee emulator-artifacts/startup.txt
             sleep 5
             adb shell pidof fr.angel.dynamicisland
-            mkdir -p emulator-artifacts
+            adb shell dumpsys meminfo fr.angel.dynamicisland > emulator-artifacts/meminfo.txt
+            adb shell dumpsys gfxinfo fr.angel.dynamicisland framestats > emulator-artifacts/frame-stats.txt
             adb exec-out screencap -p > emulator-artifacts/first-launch.png
             if adb logcat -d -s AndroidRuntime:E | grep -q "FATAL EXCEPTION"; then
               adb logcat -d -s AndroidRuntime:E | tail -100

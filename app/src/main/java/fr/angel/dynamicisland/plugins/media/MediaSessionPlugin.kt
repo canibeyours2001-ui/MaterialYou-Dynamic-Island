@@ -8,7 +8,6 @@ import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.MediaSessionManager.OnActiveSessionsChangedListener
 import android.provider.Settings
-import android.util.Log
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -329,7 +328,6 @@ class MediaSessionPlugin(
 
         val controller = current.mediaController
 
-        Log.d("MediaSessionPlugin", "onClick: ${controller.sessionActivity}")
         if (controller.sessionActivity != null) {
             try {
                 controller.sessionActivity!!.send(0)
@@ -412,7 +410,6 @@ class MediaSessionPlugin(
         val mediaCallback = callbackMap.values.firstOrNull()
 
         if (mediaCallback == null) {
-            Log.d("MediaSessionPlugin", "RightOpenedComposable: No media callback")
             return
         }
 
