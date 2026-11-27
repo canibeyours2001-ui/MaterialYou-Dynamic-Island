@@ -29,6 +29,7 @@ class IslandSettings {
 	var showInLandscape by mutableStateOf(false)
 	var showBorders by mutableStateOf(false)
     var reducedMotion by mutableStateOf(false)
+    var hapticFeedback by mutableStateOf(true)
     var showIdleIsland by mutableStateOf(false)
     var animationSpeed by mutableFloatStateOf(1f)
 
@@ -68,6 +69,7 @@ class IslandSettings {
 		autoHideOpenedAfter = settings.getFloat(AUTO_HIDE_OPENED_AFTER, 5000f)
 		showBorders = settings.getBoolean(SHOW_BORDER, false)
         reducedMotion = settings.getBoolean(REDUCED_MOTION, false)
+        hapticFeedback = settings.getBoolean(HAPTIC_FEEDBACK, true)
         showIdleIsland = settings.getBoolean(SHOW_IDLE_ISLAND, false)
         animationSpeed = settings.getFloat(ANIMATION_SPEED, 1f).takeIf { it.isFinite() }?.coerceIn(0.5f, 2f) ?: 1f
 		gravity = runCatching { IslandGravity.valueOf(settings.getString(GRAVITY, IslandGravity.Center.name) ?: IslandGravity.Center.name) }.getOrDefault(IslandGravity.Center)

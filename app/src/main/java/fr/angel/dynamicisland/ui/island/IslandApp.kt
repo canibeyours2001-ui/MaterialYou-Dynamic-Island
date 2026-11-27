@@ -43,6 +43,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.abs
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import fr.angel.dynamicisland.island.Island
@@ -60,6 +62,7 @@ fun IslandApp(
     islandOverlayService: IslandOverlayService
 ) {
     val context = LocalContext.current
+    val hapticFeedback = LocalHapticFeedback.current
     Theme.instance.Init()
     LaunchedEffect(Unit) {
         IslandSettings.instance.loadSettings(context = context)
@@ -104,6 +107,9 @@ fun IslandApp(
                 onDragStart = { horizontalTravel = 0f },
                 onDragEnd = {
                     if (abs(horizontalTravel) > 48f) {
+                        if (IslandSettings.instance.hapticFeedback) {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
                         islandOverlayService.pluginManager.cycleActivity(
                             if (horizontalTravel < 0f) 1 else -1
                         )
@@ -124,6 +130,9 @@ fun IslandApp(
                 .combinedClickable(
                     onClick = { bindedPlugin?.onClick() },
                     onLongClick = {
+                        if (IslandSettings.instance.hapticFeedback) {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
                         if (islandView is IslandViewState.Expanded) {
                             islandOverlayService.shrink()
                         } else if (bindedPlugin?.canExpand() == true) {
@@ -199,8 +208,10 @@ fun IslandApp(
                                     .fillMaxSize(),
                                 contentAlignment = Alignment.Center,
                             ) {
+                                // Include the selected activity in the transition key so
+                                // switching from media to notifications crossfades instead of snapping.
                                 AnimatedContent(
-                                    targetState = islandView,
+                                    targetState = islandView to bindedPlugin?.id,
                                     transitionSpec = {
                                         if (reducedMotion) {
                                             EnterTransition.None togetherWith ExitTransition.None
@@ -210,7 +221,9 @@ fun IslandApp(
                                         }
                                     },
                                     label = "IslandTransition"
-                                ) { islandView ->
+                                ) { (islandView, pluginId) ->
+                                    val transitioningPlugin =
+                                        islandOverlayService.pluginManager.activePlugins.firstOrNull { it.id == pluginId }
                                     // Expanded State
                                     if (islandView is IslandViewState.Expanded) {
                                         Box(
@@ -224,7 +237,7 @@ fun IslandApp(
                                                 )
                                                 .clip(RoundedCornerShape(cornerPercentage))
                                         ) {
-                                            bindedPlugin?.Composable(
+                                            transitioningPlugin?.Composable(
                                                 sharedTransitionScope = this@SharedTransitionLayout,
                                                 animatedContentScope = this@AnimatedContent
                                             )
@@ -249,7 +262,7 @@ fun IslandApp(
                                                 modifier = boxModifier,
                                                 contentAlignment = Alignment.CenterEnd
                                             ) {
-                                                bindedPlugin?.LeftOpenedComposable(
+                                                transitioningPlugin?.LeftOpenedComposable(
                                                     sharedTransitionScope = this@SharedTransitionLayout,
                                                     animatedContentScope = this@AnimatedContent
                                                 )
@@ -259,7 +272,7 @@ fun IslandApp(
                                                 modifier = boxModifier,
                                                 contentAlignment = Alignment.CenterStart
                                             ) {
-                                                bindedPlugin?.RightOpenedComposable(
+                                                transitioningPlugin?.RightOpenedComposable(
                                                     sharedTransitionScope = this@SharedTransitionLayout,
                                                     animatedContentScope = this@AnimatedContent
                                                 )

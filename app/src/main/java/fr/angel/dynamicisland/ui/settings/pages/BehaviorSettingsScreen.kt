@@ -55,6 +55,16 @@ fun BehaviorSettingsScreen() {
         }
         item {
             SwitchSettingsItem(
+                title = "Haptic feedback",
+                description = "Gentle feedback on expansion and activity switching",
+                checked = settings.hapticFeedback
+            ) {
+                settings.hapticFeedback = it
+                settings.applySettings(context)
+            }
+        }
+        item {
+            SwitchSettingsItem(
                 title = "Show idle island",
                 description = "Keep a small pill visible even without an active activity",
                 checked = settings.showIdleIsland

@@ -3,7 +3,6 @@ package fr.angel.dynamicisland.plugins.notification
 import android.app.RemoteInput
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Context.INPUT_METHOD_SERVICE
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.core.content.ContextCompat
@@ -12,7 +11,6 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.util.Log
-import android.view.inputmethod.InputMethodManager
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -44,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -155,9 +154,12 @@ class NotificationPlugin(
     ) {
         val meta = notificationMeta.value ?: return
         val context = LocalContext.current
+        val keyboardController = LocalSoftwareKeyboardController.current
 
-        // Cancel notification timeout
-        handler.removeCallbacksAndMessages(null)
+        // Timer cancellation is an effect, not an operation on every recomposition.
+        LaunchedEffect(meta.statusBarNotification.key) {
+            handler.removeCallbacksAndMessages(null)
+        }
 
         val dismissState = rememberSwipeToDismissBoxState(
             confirmValueChange = {
@@ -318,7 +320,11 @@ class NotificationPlugin(
                                 onClick = {
                                     // Classic action
                                     val intent = action.actionIntent
-                                    intent.send()
+                                    try {
+                                        intent.send()
+                                    } catch (_: android.app.PendingIntent.CanceledException) {
+                                        return@Button
+                                    }
                                     // Remove notification
                                     context.sendBroadcast(Intent(ACTION_CLOSE).apply {
                                         putExtra("key", meta.statusBarNotification?.key)
@@ -361,14 +367,7 @@ class NotificationPlugin(
                                 modifier = Modifier
                                     .weight(1f)
                                     .onFocusChanged {
-                                        val imm =
-                                            context.getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                                        if (it.isFocused) {
-                                            imm.toggleSoftInput(
-                                                InputMethodManager.SHOW_FORCED,
-                                                0
-                                            )
-                                        }
+                                        if (it.isFocused) keyboardController?.show()
                                     },
                                 shape = CircleShape,
                                 singleLine = true,
@@ -386,7 +385,11 @@ class NotificationPlugin(
                                     putCharSequence(remoteInput.resultKey, replyText.text)
                                 }
                                 RemoteInput.addResultsToIntent(action.remoteInputs, intent, bundle)
-                                action.actionIntent.send(context, 0, intent)
+                                try {
+                                    action.actionIntent.send(context, 0, intent)
+                                } catch (_: android.app.PendingIntent.CanceledException) {
+                                    return@IconButton
+                                }
                                 // Remove notification
                                 context.sendBroadcast(Intent(ACTION_CLOSE).apply {
                                     putExtra("key", meta.statusBarNotification?.key)
