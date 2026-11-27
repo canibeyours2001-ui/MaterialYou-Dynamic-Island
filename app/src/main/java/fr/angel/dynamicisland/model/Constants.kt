@@ -37,3 +37,8 @@ const val GRAVITY = "gravity"
 
 // Battery Plugin Settings
 const val BATTERY_SHOW_PERCENTAGE = "battery_show_percentage"
+
+// Display and accessibility preferences
+const val REDUCED_MOTION = "reduced_motion"
+const val ANIMATION_SPEED = "animation_speed"
+const val SHOW_IDLE_ISLAND = "show_idle_island"

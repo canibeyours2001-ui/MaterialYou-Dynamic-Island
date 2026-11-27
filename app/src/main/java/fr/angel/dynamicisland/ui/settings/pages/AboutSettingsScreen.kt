@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context.CLIPBOARD_SERVICE
 import android.widget.Toast
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -88,7 +89,7 @@ fun AboutSettingsScreen() {
 			TextSettingsItem(
 				icon = Icons.Default.VerifiedUser,
 				title = "Disclosure",
-				description = context.getString(R.string.disclosure),
+				description = stringResource(R.string.disclosure),
 			)
 			TextSettingsItem(
 				icon = Icons.Default.Policy,

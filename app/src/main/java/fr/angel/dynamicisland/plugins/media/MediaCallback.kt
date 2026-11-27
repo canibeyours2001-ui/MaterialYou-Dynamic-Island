@@ -8,66 +8,66 @@ import android.os.Looper
 import android.util.Log
 
 class MediaCallback(
-	val mediaController: MediaController,
-	private val context: MediaSessionPlugin,
+    val mediaController: MediaController,
+    private val context: MediaSessionPlugin,
 ) : MediaController.Callback() {
 
-	private lateinit var mediaMetadata: MediaMetadata
-	val mediaStruct = MediaStruct()
-	private val handler = Handler(Looper.getMainLooper())
+    private lateinit var mediaMetadata: MediaMetadata
+    val mediaStruct = MediaStruct()
+    private val handler = Handler(Looper.getMainLooper())
 
-	init {
-		if (mediaController.metadata != null && mediaController.playbackState != null) {
-			mediaMetadata = mediaController.metadata!!
-			mediaStruct.playbackState.value = mediaController.playbackState!!
+    init {
+        if (mediaController.metadata != null && mediaController.playbackState != null) {
+            mediaMetadata = mediaController.metadata!!
+            mediaStruct.playbackState.value = mediaController.playbackState!!
 
-			updateMediaStruct(addPlugin = mediaStruct.playbackState.value.state == PlaybackState.STATE_PLAYING)
-		}
-	}
+            updateMediaStruct(addPlugin = mediaStruct.playbackState.value.state == PlaybackState.STATE_PLAYING)
+        }
+    }
 
-	override fun onPlaybackStateChanged(state: PlaybackState?) {
-		super.onPlaybackStateChanged(state)
-		if (state == null) return
-		// Update the playback state
-		mediaStruct.playbackState.value = state
-		context.addMedia()
+    override fun onPlaybackStateChanged(state: PlaybackState?) {
+        super.onPlaybackStateChanged(state)
+        if (state == null) return
+        // Update the playback state
+        mediaStruct.playbackState.value = state
+        context.addMedia()
 
-		// If media is paused, remove the plugin after 60 seconds
-		if (state.state == PlaybackState.STATE_PLAYING) {
-			handler.removeCallbacksAndMessages(null)
-		} else {
+        // If media is paused, remove the plugin after 60 seconds
+        if (state.state == PlaybackState.STATE_PLAYING) {
             handler.removeCallbacksAndMessages(null)
-			handler.postDelayed ({
-				context.removeMedia(mediaController)
-			}, 60000)
-		}
-	}
+        } else {
+            handler.removeCallbacksAndMessages(null)
+            handler.postDelayed ({
+                context.removeMedia(mediaController)
+            }, 60000)
+        }
+    }
 
-	override fun onMetadataChanged(metadata: MediaMetadata?) {
-		super.onMetadataChanged(metadata)
-		mediaMetadata = metadata ?: return
+    override fun onMetadataChanged(metadata: MediaMetadata?) {
+        super.onMetadataChanged(metadata)
+        mediaMetadata = metadata ?: return
 
-		if (this::mediaMetadata.isInitialized) {
-			updateMediaStruct()
-		}
-	}
+        if (this::mediaMetadata.isInitialized) {
+            updateMediaStruct()
+        }
+    }
 
-	override fun onSessionDestroyed() {
-		super.onSessionDestroyed()
-		context.removeMedia(mediaController)
-	}
+    override fun onSessionDestroyed() {
+        super.onSessionDestroyed()
+        context.removeMedia(mediaController)
+    }
 
     fun dispose() {
         handler.removeCallbacksAndMessages(null)
         mediaController.unregisterCallback(this)
     }
 
-	private fun updateMediaStruct(addPlugin: Boolean = true) {
-		mediaStruct.title.value = (mediaMetadata.getText(MediaMetadata.METADATA_KEY_TITLE) ?: "").toString()
-		mediaStruct.artist.value = (mediaMetadata.getText(MediaMetadata.METADATA_KEY_ARTIST) ?: "").toString()
-		mediaStruct.cover.value = mediaMetadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
-		mediaStruct.duration.value = mediaMetadata.getLong(MediaMetadata.METADATA_KEY_DURATION)
+    private fun updateMediaStruct(addPlugin: Boolean = true) {
+        mediaStruct.title.value = (mediaMetadata.getText(MediaMetadata.METADATA_KEY_TITLE) ?: "").toString()
+        mediaStruct.artist.value = (mediaMetadata.getText(MediaMetadata.METADATA_KEY_ARTIST) ?: "").toString()
+        mediaStruct.cover.value = mediaMetadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+        mediaStruct.duration.value = mediaMetadata.getLong(MediaMetadata.METADATA_KEY_DURATION)
 
-		if (addPlugin) { context.addMedia() }
-	}
+        if (addPlugin) { context.addMedia() }
+    }
 }

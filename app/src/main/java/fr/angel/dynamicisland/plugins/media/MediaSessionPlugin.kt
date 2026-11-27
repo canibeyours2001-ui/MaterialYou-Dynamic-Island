@@ -88,20 +88,25 @@ class MediaSessionPlugin(
     private val listenerForActiveSessions =
         OnActiveSessionsChangedListener { controllers ->
             if (controllers != null) {
+                val currentTokens = controllers.map { it.sessionToken.toString() }.toSet()
+                callbackMap.keys.toList().filter { it !in currentTokens }.forEach { stale ->
+                    callbackMap.remove(stale)?.dispose()
+                }
+                if (callbackMap.isEmpty()) host?.requestDismiss(this)
                 for (controller in controllers) {
                     // Cancel if already exists
-                    if (callbackMap[controller.packageName] != null) continue
+                    if (callbackMap[controller.sessionToken.toString()] != null) continue
 
                     // Create callback for this controller and add it to the map of callbacks
                     val callback = MediaCallback(controller, this)
-                    callbackMap[controller.packageName] = callback
+                    callbackMap[controller.sessionToken.toString()] = callback
                     controller.registerCallback(callback)
                 }
             }
         }
 
     fun removeMedia(mediaController: MediaController) {
-        callbackMap.remove(mediaController.packageName)?.dispose()
+        callbackMap.remove(mediaController.sessionToken.toString())?.dispose()
         if (callbackMap.isEmpty()) {
             host?.requestDismiss(this)
         }
@@ -123,22 +128,27 @@ class MediaSessionPlugin(
             context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
 
         // Register the listener for active sessions
-        mediaSessionManager.addOnActiveSessionsChangedListener(
-            listenerForActiveSessions,
-            ComponentName(context, NotificationService::class.java)
-        )
-        mediaSessionManager.getActiveSessions(
+        try {
+            mediaSessionManager.addOnActiveSessionsChangedListener(
+                listenerForActiveSessions,
+                ComponentName(context, NotificationService::class.java)
+            )
+            mediaSessionManager.getActiveSessions(
             ComponentName(
                 context,
                 NotificationService::class.java
             )
         ).forEach { controller ->
             // Cancel if already exists
-            if (callbackMap[controller.packageName] != null) return@forEach
+            if (callbackMap[controller.sessionToken.toString()] != null) return@forEach
 
             val callback = MediaCallback(controller, this)
-            callbackMap[controller.packageName] = callback
+            callbackMap[controller.sessionToken.toString()] = callback
             controller.registerCallback(callback)
+            }
+        } catch (_: SecurityException) {
+            callbackMap.values.toList().forEach { it.dispose() }
+            callbackMap.clear()
         }
     }
 
@@ -321,7 +331,11 @@ class MediaSessionPlugin(
 
         Log.d("MediaSessionPlugin", "onClick: ${controller.sessionActivity}")
         if (controller.sessionActivity != null) {
-            controller.sessionActivity!!.send(0)
+            try {
+                controller.sessionActivity!!.send(0)
+            } catch (_: android.app.PendingIntent.CanceledException) {
+                // The playback application no longer accepts the action.
+            }
         }
     }
 

@@ -44,11 +44,18 @@ jobs:
             exit 1
           fi
       - uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
-          name: unsigned-debug-and-release-builds
+          name: android-builds-for-testing
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
+          if-no-files-found: warn
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-lint-reports
+          path: app/build/reports/lint-results-debug.*
+          if-no-files-found: warn
           retention-days: 7

@@ -35,20 +35,23 @@ import fr.angel.dynamicisland.ui.theme.Theme
 
 class MainActivity : ComponentActivity() {
 
-	private lateinit var settingsPreferences: SharedPreferences
+    private lateinit var settingsPreferences: SharedPreferences
 
-	companion object {
-		lateinit var instance: MainActivity
-	}
+    companion object {
+        lateinit var instance: MainActivity
+    }
 
-	var actions = mutableStateListOf<@Composable () -> Unit>()
+    var actions = mutableStateListOf<@Composable () -> Unit>()
 
-	@OptIn(ExperimentalMaterial3Api::class)
-	override fun onCreate(savedInstanceState: Bundle?) {
-		super.onCreate(savedInstanceState)
-		instance = this
+    @OptIn(ExperimentalMaterial3Api::class)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        instance = this
 
-		settingsPreferences = getSharedPreferences(SETTINGS_KEY, Context.MODE_PRIVATE)
+        settingsPreferences = getSharedPreferences(SETTINGS_KEY, Context.MODE_PRIVATE)
+
+        IslandSettings.instance.loadSettings(this)
+        ExportedPlugins.setupPermissions(this)
 
         // Navigation is a side effect; do not start an activity from a composition.
         if (!settingsPreferences.getBoolean(DISCLOSURE_ACCEPTED, false)) {
@@ -57,142 +60,140 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-		WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
-		// Invert theme in app
-		settingsPreferences.edit().putBoolean(THEME_INVERTED, true).apply()
-		sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
+        // Invert theme in app
+        settingsPreferences.edit().putBoolean(THEME_INVERTED, true).apply()
+        sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
 
-		setContent {
-			// Setup plugins
-			ExportedPlugins.setupPermissions(LocalContext.current)
-
-			// Init
-			Theme.instance.Init()
-			IslandSettings.instance.loadSettings(this)
+        setContent {
+            // Setup plugins
+            // Settings and permissions are initialized before composition.
+            Theme.instance.Init()
 
 
-			DynamicIslandTheme(
-				darkTheme = Theme.instance.isDarkTheme,
-			) {
-				// A surface container using the 'background' color from the theme
-				Surface(
-					modifier = Modifier.fillMaxSize(),
-					color = MaterialTheme.colorScheme.background
-				) {
-					// Navigation
-					val settingsRoutes = settings.map { (it as IslandDestination).route }
+            DynamicIslandTheme(
+                darkTheme = Theme.instance.isDarkTheme,
+            ) {
+                // A surface container using the 'background' color from the theme
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    // Navigation
+                    val settingsRoutes = settings.map { (it as IslandDestination).route }
 
-					val navController = rememberNavController()
-					val currentBackStack by navController.currentBackStackEntryAsState()
-					val currentDestination = currentBackStack?.destination
-					val currentScreen : IslandDestination =
-						bottomDestinations.find { it.route == currentDestination?.route } ?:
-							// If current destination is contained in settings
-						(settings.find { (it as IslandDestination).route == currentDestination?.route }
-							?: if (currentDestination?.route == IslandPluginSettings.routeWithArgs) IslandPluginSettings else IslandHome
-								) as IslandDestination
+                    val navController = rememberNavController()
+                    val currentBackStack by navController.currentBackStackEntryAsState()
+                    val currentDestination = currentBackStack?.destination
+                    val currentScreen : IslandDestination =
+                        bottomDestinations.find { it.route == currentDestination?.route } ?:
+                            // If current destination is contained in settings
+                        (settings.find { (it as IslandDestination).route == currentDestination?.route }
+                            ?: if (currentDestination?.route == IslandPluginSettings.routeWithArgs) IslandPluginSettings else IslandHome
+                                ) as IslandDestination
 
-					// Top app bar
-					val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+                    // Top app bar
+                    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
-					LaunchedEffect(currentScreen) {
-						actions.clear()
-					}
+                    LaunchedEffect(currentScreen) {
+                        actions.clear()
+                    }
 
-					Scaffold(
-						modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-						topBar = {
-							CenterAlignedTopAppBar(
-								title = {
-									Crossfade(
-										targetState = currentScreen,
-									) { screen ->
-										Text(
-											text = if (screen == IslandHome) {
-												stringResource(id = R.string.app_name)
-											} else {
-												screen.title
-											},
-											textAlign = TextAlign.Center,
-											modifier = Modifier
-												.fillMaxWidth()
-										)
-									}
-								},
-								navigationIcon = {
-									if (
-										currentDestination?.route in settingsRoutes
-										|| currentDestination?.route == IslandPluginSettings.routeWithArgs
-									) {
-										IconButton(onClick = { navController.popBackStack() }) {
-											Icon(
-												imageVector = Icons.Default.ArrowBack,
-												contentDescription = "Back"
-											)
-										}
-									}
-								},
-								actions = {
-									actions.forEach { it() }
-								},
-								scrollBehavior = scrollBehavior
-							)
-						},
-						bottomBar = {
-							NavigationBar {
-								for (destination in bottomDestinations) {
-									NavigationBarItem(
-										icon = { Icon(destination.icon, contentDescription = null) },
-										label = { Text(destination.title) },
-										selected = currentScreen == destination
-												|| (destination == fr.angel.dynamicisland.navigation.IslandSettings && settings.contains(currentScreen))
-												|| (destination == IslandPlugins && currentScreen == IslandPluginSettings),
-										onClick = {
-											navController.navigateSingleTopTo(destination.route)
-										}
-									)
-								}
-							}
-						},
-					) {
-						IslandNavHost(
-							modifier = Modifier
-								.padding(it)
-								.fillMaxSize(),
-							navController = navController
-						)
-					}
-				}
-			}
-		}
-	}
+                    Scaffold(
+                        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+                        topBar = {
+                            CenterAlignedTopAppBar(
+                                title = {
+                                    Crossfade(
+                                        targetState = currentScreen,
+                                    ) { screen ->
+                                        Text(
+                                            text = if (screen == IslandHome) {
+                                                stringResource(id = R.string.app_name)
+                                            } else {
+                                                screen.title
+                                            },
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                        )
+                                    }
+                                },
+                                navigationIcon = {
+                                    if (
+                                        currentDestination?.route in settingsRoutes
+                                        || currentDestination?.route == IslandPluginSettings.routeWithArgs
+                                    ) {
+                                        IconButton(onClick = { navController.popBackStack() }) {
+                                            Icon(
+                                                imageVector = Icons.Default.ArrowBack,
+                                                contentDescription = "Back"
+                                            )
+                                        }
+                                    }
+                                },
+                                actions = {
+                                    actions.forEach { it() }
+                                },
+                                scrollBehavior = scrollBehavior
+                            )
+                        },
+                        bottomBar = {
+                            NavigationBar {
+                                for (destination in bottomDestinations) {
+                                    NavigationBarItem(
+                                        icon = { Icon(destination.icon, contentDescription = null) },
+                                        label = { Text(destination.title) },
+                                        selected = currentScreen == destination
+                                                || (destination == fr.angel.dynamicisland.navigation.IslandSettings && settings.contains(currentScreen))
+                                                || (destination == IslandPlugins && currentScreen == IslandPluginSettings),
+                                        onClick = {
+                                            navController.navigateSingleTopTo(destination.route)
+                                        }
+                                    )
+                                }
+                            }
+                        },
+                    ) {
+                        IslandNavHost(
+                            modifier = Modifier
+                                .padding(it)
+                                .fillMaxSize(),
+                            navController = navController
+                        )
+                    }
+                }
+            }
+        }
+    }
 
-	override fun onDestroy() {
-		super.onDestroy()
-		// Un-invert theme in app
-		settingsPreferences.edit().putBoolean(THEME_INVERTED, false).apply()
-		sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
-	}
+    override fun onDestroy() {
+        super.onDestroy()
+        // Un-invert theme in app
+        settingsPreferences.edit().putBoolean(THEME_INVERTED, false).apply()
+        sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
+    }
 
-	override fun onStop() {
-		super.onStop()
-		// Un-invert theme in app
-		settingsPreferences.edit().putBoolean(THEME_INVERTED, false).apply()
-		sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
-	}
+    override fun onStop() {
+        super.onStop()
+        // Un-invert theme in app
+        settingsPreferences.edit().putBoolean(THEME_INVERTED, false).apply()
+        sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
+    }
 
-	override fun onPause() {
-		super.onPause()
-		// Un-invert theme in app
-		settingsPreferences.edit().putBoolean(THEME_INVERTED, false).apply()
-		sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
-	}
+    override fun onPause() {
+        super.onPause()
+        // Un-invert theme in app
+        settingsPreferences.edit().putBoolean(THEME_INVERTED, false).apply()
+        sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
+    }
 
-	override fun onResume() {
-		super.onResume()
-		// Invert theme in app
-		settingsPreferences.edit().putBoolean(THEME_INVERTED, true).apply()
-		sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
-	}
+    override fun onResume() {
+        super.onResume()
+        ExportedPlugins.setupPermissions(this)
+        // Invert theme in app
+        settingsPreferences.edit().putBoolean(THEME_INVERTED, true).apply()
+        sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
+    }
 }

@@ -27,6 +27,9 @@ class IslandSettings {
 	var showOnLockScreen by mutableStateOf(false)
 	var showInLandscape by mutableStateOf(false)
 	var showBorders by mutableStateOf(false)
+    var reducedMotion by mutableStateOf(false)
+    var showIdleIsland by mutableStateOf(false)
+    var animationSpeed by mutableFloatStateOf(1f)
 
 	var autoHideOpenedAfter by mutableFloatStateOf(5000f)
 
@@ -43,6 +46,9 @@ class IslandSettings {
 			.putBoolean(SHOW_IN_LANDSCAPE, showInLandscape)
 			.putFloat(AUTO_HIDE_OPENED_AFTER, autoHideOpenedAfter)
 			.putBoolean(SHOW_BORDER, showBorders)
+            .putBoolean(REDUCED_MOTION, reducedMotion)
+            .putBoolean(SHOW_IDLE_ISLAND, showIdleIsland)
+            .putFloat(ANIMATION_SPEED, animationSpeed)
 			.putString(GRAVITY, gravity.name)
 			.apply()
 	}
@@ -60,6 +66,9 @@ class IslandSettings {
 		showInLandscape = settings.getBoolean(SHOW_IN_LANDSCAPE, false)
 		autoHideOpenedAfter = settings.getFloat(AUTO_HIDE_OPENED_AFTER, 5000f)
 		showBorders = settings.getBoolean(SHOW_BORDER, false)
+        reducedMotion = settings.getBoolean(REDUCED_MOTION, false)
+        showIdleIsland = settings.getBoolean(SHOW_IDLE_ISLAND, false)
+        animationSpeed = settings.getFloat(ANIMATION_SPEED, 1f).takeIf { it.isFinite() }?.coerceIn(0.5f, 2f) ?: 1f
 		gravity = runCatching { IslandGravity.valueOf(settings.getString(GRAVITY, IslandGravity.Center.name) ?: IslandGravity.Center.name) }.getOrDefault(IslandGravity.Center)
 	}
 }

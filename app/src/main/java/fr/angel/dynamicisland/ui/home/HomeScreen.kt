@@ -28,6 +28,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.with
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -396,32 +397,16 @@ fun ServiceStatusCard(
                     .fillMaxHeight(),
                 targetState = isAccessibilityGranted,
                 transitionSpec = {
-                    if (isAccessibilityGranted) {
-                        slideInHorizontally { width -> -width } + fadeIn() with
-                                slideOutHorizontally { width -> -width } + fadeOut()
-                    } else {
-                        slideInHorizontally { width -> -width } + fadeIn() with
-                                slideOutHorizontally { width -> -width } + fadeOut()
-                    }
-                }
-            ) {
-                Crossfade(
-                    targetState = isAccessibilityGranted,
-                ) {
-                    if (it) {
-                        LottieAnimation(
-                            composition = compositionEnabled,
-                            iterations = LottieConstants.IterateForever,
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        LottieAnimation(
-                            composition = compositionDisabled,
-                            iterations = LottieConstants.IterateForever,
-                            contentScale = ContentScale.Crop,
-                        )
-                    }
-                }
+                    (slideInHorizontally { width -> -width } + fadeIn())
+                        .togetherWith(slideOutHorizontally { width -> width } + fadeOut())
+                },
+                label = "accessibility-state"
+            ) { granted ->
+                LottieAnimation(
+                    composition = if (granted) compositionEnabled else compositionDisabled,
+                    iterations = LottieConstants.IterateForever,
+                    contentScale = ContentScale.Crop
+                )
             }
 
             Spacer(modifier = Modifier.width(16.dp))

@@ -32,7 +32,7 @@ class NotificationService : NotificationListenerService() {
             } ?: return
             when (intent.action) {
                 ACTION_OPEN_CLOSE -> {
-                    dismiss(posted)
+                    // Opening should not silently cancel the user's original notification.
                     try {
                         posted.notification.contentIntent?.send()
                     } catch (_: PendingIntent.CanceledException) { }
@@ -43,9 +43,7 @@ class NotificationService : NotificationListenerService() {
     }
 
     private fun dismiss(posted: StatusBarNotification) {
-        try {
-            posted.notification.deleteIntent?.send() ?: cancelNotification(posted.key)
-        } catch (_: PendingIntent.CanceledException) {
+        if (posted.isClearable) {
             cancelNotification(posted.key)
         }
     }
@@ -76,6 +74,8 @@ class NotificationService : NotificationListenerService() {
         ) return
         notifications.removeAll { it.key == sbn.key }
         notifications.add(sbn)
+        // Bound retained notification metadata even when a misbehaving app spams updates.
+        while (notifications.size > 64) notifications.removeAt(0)
         sendBroadcast(Intent(NOTIFICATION_POSTED).apply {
             setPackage(packageName)
             putExtra("key", sbn.key)
