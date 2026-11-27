@@ -33,7 +33,16 @@ jobs:
       - name: Build, test, lint, and check R8 release build
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+          if ! ./gradlew --no-daemon --stacktrace --continue :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:assembleRelease; then
+            echo "::group::Android lint report (all issues)"
+            if [ -f app/build/reports/lint-results-debug.txt ]; then
+              cat app/build/reports/lint-results-debug.txt
+            else
+              echo "Lint report missing; see Gradle output above."
+            fi
+            echo "::endgroup::"
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         if: success()
         with:
