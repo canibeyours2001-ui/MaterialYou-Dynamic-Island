@@ -79,7 +79,7 @@ abstract class BasePlugin {
 			editor.putBoolean(id, enabled)
 			editor.apply()
 
-			context.sendBroadcast(Intent(SETTINGS_CHANGED))
+			context.sendBroadcast(Intent(SETTINGS_CHANGED).setPackage(context.packageName))
 			this.enabled.value = enabled
 
 			true

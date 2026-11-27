@@ -2,50 +2,41 @@ package fr.angel.dynamicisland.plugins
 
 import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import fr.angel.dynamicisland.plugins.battery.BatteryPlugin
 import fr.angel.dynamicisland.plugins.media.MediaSessionPlugin
 import fr.angel.dynamicisland.plugins.notification.NotificationPlugin
 
-class PluginManager(
-    private val context: Context,
-    private val host: PluginHost
-) {
-    val allPlugins = listOf(
-        NotificationPlugin(),
-        MediaSessionPlugin(),
-        BatteryPlugin()
-    )
-
+/** Registers active plugin listeners once and reconciles toggles on settings changes. */
+class PluginManager(private val context: Context, private val host: PluginHost) {
+    val allPlugins = listOf(NotificationPlugin(), MediaSessionPlugin(), BatteryPlugin())
     val activePlugins = mutableStateListOf<BasePlugin>()
+    private val startedPlugins = mutableSetOf<String>()
 
     fun initialize() {
         allPlugins.forEach { plugin ->
             plugin.enabled.value = plugin.isPluginEnabled(context)
-            if (plugin.active) {
-                plugin.onCreate(host)
+            when {
+                plugin.active && startedPlugins.add(plugin.id) -> plugin.onCreate(host)
+                !plugin.active && startedPlugins.remove(plugin.id) -> {
+                    requestDismiss(plugin)
+                    plugin.onDestroy()
+                }
             }
         }
     }
 
     fun onDestroy() {
-        allPlugins.forEach { it.onDestroy() }
+        allPlugins.filter { startedPlugins.remove(it.id) }.forEach { it.onDestroy() }
+        activePlugins.clear()
     }
 
     fun requestDisplay(plugin: BasePlugin) {
-        if (!activePlugins.contains(plugin)) {
-            // Simple priority: Notification > Media > Battery
-            val index = allPlugins.indexOfFirst { it.id == plugin.id }
-            var insertAt = activePlugins.size
-            for (i in activePlugins.indices) {
-                val activeIndex = allPlugins.indexOfFirst { it.id == activePlugins[i].id }
-                if (index < activeIndex) {
-                    insertAt = i
-                    break
-                }
-            }
-            activePlugins.add(insertAt, plugin)
-        }
+        if (!startedPlugins.contains(plugin.id) || activePlugins.contains(plugin)) return
+        val priority = allPlugins.indexOfFirst { it.id == plugin.id }
+        val insertion = activePlugins.indexOfFirst {
+            allPlugins.indexOfFirst { item -> item.id == it.id } > priority
+        }.let { if (it == -1) activePlugins.size else it }
+        activePlugins.add(insertion, plugin)
     }
 
     fun requestDismiss(plugin: BasePlugin) {

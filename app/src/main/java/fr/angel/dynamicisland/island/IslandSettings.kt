@@ -60,7 +60,7 @@ class IslandSettings {
 		showInLandscape = settings.getBoolean(SHOW_IN_LANDSCAPE, false)
 		autoHideOpenedAfter = settings.getFloat(AUTO_HIDE_OPENED_AFTER, 5000f)
 		showBorders = settings.getBoolean(SHOW_BORDER, false)
-		gravity = IslandGravity.valueOf(settings.getString(GRAVITY, IslandGravity.Center.name) ?: IslandGravity.Center.name)
+		gravity = runCatching { IslandGravity.valueOf(settings.getString(GRAVITY, IslandGravity.Center.name) ?: IslandGravity.Center.name) }.getOrDefault(IslandGravity.Center)
 	}
 }
 

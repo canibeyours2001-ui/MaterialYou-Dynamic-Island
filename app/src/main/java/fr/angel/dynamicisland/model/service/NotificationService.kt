@@ -1,128 +1,103 @@
 package fr.angel.dynamicisland.model.service
 
 import android.app.Notification
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
+import fr.angel.dynamicisland.island.IslandSettings
 import fr.angel.dynamicisland.model.ACTION_CLOSE
 import fr.angel.dynamicisland.model.ACTION_OPEN_CLOSE
 import fr.angel.dynamicisland.model.NOTIFICATION_POSTED
 import fr.angel.dynamicisland.model.NOTIFICATION_REMOVED
-import fr.angel.dynamicisland.island.IslandSettings
-
 
 class NotificationService : NotificationListenerService() {
+    val notifications = mutableStateListOf<StatusBarNotification>()
 
-	var notifications = mutableStateListOf<StatusBarNotification>()
+    companion object {
+        private var instance: NotificationService? = null
+        fun getInstance(): NotificationService? = instance
+    }
 
-	companion object {
-		private var instance: NotificationService? = null
+    private val actionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            // Notification IDs are not unique across apps; the system key is.
+            val posted = notifications.firstOrNull {
+                it.key == intent.getStringExtra("key")
+            } ?: return
+            when (intent.action) {
+                ACTION_OPEN_CLOSE -> {
+                    dismiss(posted)
+                    try {
+                        posted.notification.contentIntent?.send()
+                    } catch (_: PendingIntent.CanceledException) { }
+                }
+                ACTION_CLOSE -> dismiss(posted)
+            }
+        }
+    }
 
-		fun getInstance(): NotificationService? {
-			return instance
-		}
-	}
+    private fun dismiss(posted: StatusBarNotification) {
+        try {
+            posted.notification.deleteIntent?.send() ?: cancelNotification(posted.key)
+        } catch (_: PendingIntent.CanceledException) {
+            cancelNotification(posted.key)
+        }
+    }
 
-	private val mBroadcastReceiver: BroadcastReceiver = object : BroadcastReceiver() {
-		override fun onReceive(context: Context, intent: Intent) {
+    override fun onCreate() {
+        super.onCreate()
+        instance = this
+        registerReceiver(
+            actionReceiver,
+            IntentFilter().apply {
+                addAction(ACTION_OPEN_CLOSE)
+                addAction(ACTION_CLOSE)
+            },
+            RECEIVER_NOT_EXPORTED
+        )
+    }
 
-			val statusBarNotification = notifications.firstOrNull { it.id == intent.getIntExtra("id", 0) } ?: return
-			Log.d("NotificationService", "onReceive: ${statusBarNotification.id}, ${statusBarNotification.id}, ${statusBarNotification.notification.actions?.size}")
-			val notification = statusBarNotification.notification
+    override fun onNotificationPosted(sbn: StatusBarNotification) {
+        val notification = sbn.notification
+        val enabledApps = IslandSettings.instance.enabledApps
+        if (enabledApps.isNotEmpty() && sbn.packageName !in enabledApps) return
+        if (notification.category in setOf(
+                Notification.CATEGORY_SYSTEM,
+                Notification.CATEGORY_SERVICE,
+                Notification.CATEGORY_TRANSPORT
+            )
+        ) return
+        notifications.removeAll { it.key == sbn.key }
+        notifications.add(sbn)
+        sendBroadcast(Intent(NOTIFICATION_POSTED).apply {
+            setPackage(packageName)
+            putExtra("key", sbn.key)
+            putExtra("id", sbn.id)
+            putExtra("package_name", sbn.packageName)
+            putExtra("category", notification.category)
+            putExtra("time", sbn.postTime)
+            putExtra("title", notification.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString())
+            putExtra("body", notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        })
+    }
 
-			if (intent.action == ACTION_OPEN_CLOSE) {
-				// Logic to remove notification
-				if (notification.deleteIntent != null) {
-					// Delete notification
-					notification.deleteIntent.send()
-				} else {
-					// If notification is not deletable, cancel it
-					cancelNotification(statusBarNotification.key)
-				}
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        notifications.removeAll { it.key == sbn.key }
+        sendBroadcast(Intent(NOTIFICATION_REMOVED).apply {
+            setPackage(packageName)
+            putExtra("key", sbn.key)
+        })
+    }
 
-				// Start content intent from notification
-				notification.contentIntent.send()
-			}
-			if (intent.action == ACTION_CLOSE) {
-				// Logic to remove notification
-				if (notification.deleteIntent != null) {
-					notification.deleteIntent.send()
-				} else {
-					cancelNotification(statusBarNotification.key)
-				}
-			}
-		}
-	}
-
-	override fun onCreate() {
-		super.onCreate()
-		instance = this
-		Log.d("NotificationService", "onCreate: ")
-
-		// Register broadcast receiver
-		registerReceiver(mBroadcastReceiver, IntentFilter().apply {
-			addAction(ACTION_OPEN_CLOSE)
-			addAction(ACTION_CLOSE)
-		}, RECEIVER_EXPORTED)
-	}
-
-	override fun onNotificationPosted(statusBarNotification: StatusBarNotification) {
-		super.onNotificationPosted(statusBarNotification)
-
-		val notification = statusBarNotification.notification
-
-		// Check if notification is in the enabled apps list
-		if ((statusBarNotification.packageName !in IslandSettings.instance.enabledApps) && !IslandSettings.instance.enabledApps.isEmpty()) return
-
-		Log.d("NotificationService", "Notification Category: ${notification.category}")
-		// Ignore notifications from ->
-		when (notification.category) {
-			Notification.CATEGORY_SYSTEM, // Ignore system notifications
-			Notification.CATEGORY_SERVICE, // Ignore service notifications
-			Notification.CATEGORY_TRANSPORT, // Ignore media player controls notifications
-			-> return
-		}
-
-		// Add notification to list
-		notifications.add(statusBarNotification)
-		Log.d("NotificationService", "Posted: $notifications")
-		Log.d("NotificationService", "Posted: ${notifications.size}")
-
-		sendBroadcast(Intent(NOTIFICATION_POSTED).apply {
-			putExtra("id", statusBarNotification.id)
-			putExtra("package_name", statusBarNotification.packageName)
-			putExtra("category", notification.category)
-
-			putExtra("time", statusBarNotification.postTime)
-			putExtra("icon_large", notification.getLargeIcon())
-			putExtra("icon_small", notification.smallIcon)
-
-			putExtra("title", notification.extras.getString("android.title") ?: "Empty title")
-			putExtra("body", notification.extras.getString("android.text") ?: "Empty body")
-		})
-	}
-
-	override fun onNotificationRemoved(statusBarNotification: StatusBarNotification) {
-
-		// Remove notification from list
-		notifications.removeIf { it.id == statusBarNotification.id }
-		Log.d("NotificationService", "Removed: $notifications")
-		Log.d("NotificationService", "Latest notification: ${notifications.firstOrNull()}")
-
-		// Send broadcast
-		sendBroadcast(Intent(NOTIFICATION_REMOVED).apply {
-			putExtra("id", statusBarNotification.id)
-		})
-	}
-
-	override fun onDestroy() {
-		super.onDestroy()
-		instance = null
-		unregisterReceiver(mBroadcastReceiver)
-	}
+    override fun onDestroy() {
+        unregisterReceiver(actionReceiver)
+        notifications.clear()
+        instance = null
+        super.onDestroy()
+    }
 }

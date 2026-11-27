@@ -68,7 +68,7 @@ class NotificationPlugin(
 	override var pluginSettings: MutableMap<String, PluginSettingsItem> = mutableMapOf(),
 ) : BasePlugin() {
 
-	private val notificationService = NotificationService.getInstance()
+	private val notificationService get() = NotificationService.getInstance()
 
 	private var notificationMeta : MutableState<NotificationMeta?> = mutableStateOf(null)
 
@@ -78,18 +78,17 @@ class NotificationPlugin(
 		override fun onReceive(context: Context, intent: Intent) {
 
 			val extras : Bundle = intent.extras ?: return
+            val notificationService = NotificationService.getInstance() ?: return
 
 			if (intent.action == NOTIFICATION_POSTED) {
 
 				// Add notification to list
-				val notification = notificationService?.notifications?.lastOrNull { it.id == extras.getInt("id") } ?: return
+				val notification = notificationService.notifications.lastOrNull { it.key == extras.getString("key") } ?: return
 				// notifications.add(notification)
 
 				// Update notification meta
 				var total = ""
-				notificationService.notifications.filter { it.id == notification.id }.forEach { total += it.notification.extras.getString("android.text") }
 
-				Log.d("NotificationPlugin", "Notification posted: ${notification.notification.extras.getString("android.title")} - ${notification.notification.extras.getString("android.text")}")
 
 				notificationMeta.value = NotificationMeta(
 					title = extras.getString("title"),
@@ -106,13 +105,11 @@ class NotificationPlugin(
 				restartTimeout()
 
 				// Add plugin
-				Log.d("NotificationPlugin", "BroadcastReceiver: Add plugin")
 				host?.requestDisplay(this@NotificationPlugin)
 			}
 			if (intent.action == NOTIFICATION_REMOVED) {
 				// val id = extras.getInt("id")
 				// removeNotificationAndUpdateState(id, true) // Notification already removed
-				Log.d("NotificationPlugin", "id: $id")
 				if (notificationService?.notifications?.isEmpty() == true) {
 					host?.requestDismiss(this@NotificationPlugin)
 				}
@@ -120,40 +117,13 @@ class NotificationPlugin(
 		}
 	}
 
-	private fun removeNotificationAndUpdateState(id: Int) {
-		val context = host as? Context ?: return
-		// Remove notification from list
-		notificationService?.notifications?.removeAll { it.id == id }
+	private fun dismissIslandCard() {
+        handler.removeCallbacksAndMessages(null)
+        notificationMeta.value = null
+        host?.requestDismiss(this)
+    }
 
-		// Reset timeout
-		handler.removeCallbacksAndMessages(null)
-
-		// Update notification meta if list is not empty else set to null
-		notificationMeta.value = notificationService?.notifications?.firstOrNull()?.let { notification ->
-			NotificationMeta(
-				title = notification.notification.extras.getString("android.title"),
-				body = notification.notification.extras.getString("android.text") ?: "",
-				id = notification.id,
-				iconDrawable = notification.notification.smallIcon.loadDrawable(context) ?: return,
-				packageName = notification.packageName,
-				actions = notification.notification.actions.toList(),
-				all = notification.notification.extras,
-				statusBarNotification = notification
-			)
-		}
-
-		// If no more notifications, remove plugin
-		if (notificationService?.notifications?.isEmpty() == true) {
-			// Remove plugin
-			Log.d("NotificationPlugin", "BroadcastReceiver: Remove plugin")
-			host?.requestDismiss(this@NotificationPlugin)
-		}/* else {
-			// Setup timeout
-			handler.removeCallbacksAndMessages(null)
-			startTimeout()
-		}*/
-	}
-
+    
 	override fun canExpand(): Boolean { return true }
 
 	override fun onPluginCreate() {
@@ -161,7 +131,7 @@ class NotificationPlugin(
 		val filter = IntentFilter()
 		filter.addAction(NOTIFICATION_POSTED)
 		filter.addAction(NOTIFICATION_REMOVED)
-		context.registerReceiver(mBroadcastReceiver, filter, Context.RECEIVER_EXPORTED)
+		context.registerReceiver(mBroadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
 	}
 
 	@OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
@@ -179,7 +149,10 @@ class NotificationPlugin(
 		val dismissState = rememberDismissState(
 			confirmStateChange = {
 				if (it == DismissValue.DismissedToStart || it == DismissValue.DismissedToEnd) {
-					context.sendBroadcast(Intent(ACTION_CLOSE))
+					context.sendBroadcast(Intent(ACTION_CLOSE).apply {
+                        setPackage(context.packageName)
+                        putExtra("key", meta.statusBarNotification?.key)
+                    })
 				}
 				true
 			}
@@ -337,7 +310,8 @@ class NotificationPlugin(
 									intent.send()
 									// Remove notification
 									context.sendBroadcast(Intent(ACTION_CLOSE).apply {
-										putExtra("id", meta.id)
+										putExtra("key", meta.statusBarNotification?.key)
+                                        setPackage(context.packageName)
 									})
 								},
 							) {
@@ -376,7 +350,6 @@ class NotificationPlugin(
 								modifier = Modifier
 									.weight(1f)
 									.onFocusChanged {
-										Log.d("Focus", it.isFocused.toString())
 										val imm =
 											context.getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
 										if (it.isFocused) {
@@ -405,7 +378,8 @@ class NotificationPlugin(
 								action.actionIntent.send(context, 0, intent)
 								// Remove notification
 								context.sendBroadcast(Intent(ACTION_CLOSE).apply {
-									putExtra("id", meta.id)
+									putExtra("key", meta.statusBarNotification?.key)
+                                        setPackage(context.packageName)
 								})
 							}) {
 								Icon(
@@ -423,12 +397,14 @@ class NotificationPlugin(
 	override fun onClick() {
 		val meta = notificationMeta.value ?: return
 		val context = host as? Context ?: return
-		val intent = Intent(ACTION_OPEN_CLOSE)
-		intent.putExtra("id", meta.id)
+		val intent = Intent(ACTION_OPEN_CLOSE).setPackage(context.packageName)
+		intent.putExtra("key", meta.statusBarNotification?.key)
+                                        setPackage(context.packageName)
 		context.sendBroadcast(intent)
 	}
 
 	override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
 		val context = host as? Context ?: return
 		try {
 			context.unregisterReceiver(mBroadcastReceiver)
@@ -504,10 +480,13 @@ class NotificationPlugin(
 	}
 
 	override fun onLeftSwipe() {
-		Log.d("Notification", "Left swipe")
-		val context = host as? Context ?: return
-		context.sendBroadcast(Intent(ACTION_CLOSE))
-	}
+        val context = host as? Context ?: return
+        val key = notificationMeta.value?.statusBarNotification?.key ?: return
+        context.sendBroadcast(Intent(ACTION_CLOSE).apply {
+            setPackage(context.packageName)
+            putExtra("key", key)
+        })
+    }
 
 	override fun onRightSwipe() {}
 
@@ -515,8 +494,7 @@ class NotificationPlugin(
 		handler.removeCallbacksAndMessages(null)
 		handler.postDelayed({
 			if (notificationMeta.value != null) {
-				removeNotificationAndUpdateState(notificationMeta.value!!.id)
-				Log.d("NotificationPlugin", "Timeout: Remove notification")
+				dismissIslandCard()
 			}
 		}, IslandSettings.instance.autoHideOpenedAfter.toLong())
 	}

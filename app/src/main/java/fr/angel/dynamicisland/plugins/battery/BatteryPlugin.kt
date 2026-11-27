@@ -72,7 +72,7 @@ class BatteryPlugin(
 	inner class BatteryReceiver : BroadcastReceiver() {
 		override fun onReceive(context: Context, intent: Intent) {
 			// Get battery status extra
-			val status = intent.extras!!.getInt(BatteryManager.EXTRA_STATUS)
+			val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
 			val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING
 
 			// If charging, add plugin else remove it
@@ -81,7 +81,9 @@ class BatteryPlugin(
 				val batteryLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
 				val maxBatteryLevel = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
 				// Set battery percent
-				batteryPercent = (batteryLevel * 100 / maxBatteryLevel)
+				if (batteryLevel >= 0 && maxBatteryLevel > 0) {
+                    batteryPercent = (batteryLevel * 100 / maxBatteryLevel).coerceIn(0, 100)
+                }
 			} else {
 				host?.requestDismiss(this@BatteryPlugin)
 			}
