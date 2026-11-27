@@ -21,69 +21,69 @@ import fr.angel.dynamicisland.ui.theme.themes.QuinacridoneMagentaThemeLightColor
 
 class Theme {
 
-	enum class ThemeStyle(
-		val lightScheme: ColorScheme? = null,
-		val darkScheme: ColorScheme? = null,
-		val styleName: String,
-		val previewColorLight: Color?,
-		val previewColorDark: Color?
-	) {
-		MaterialYou(
-			styleName = "Material You",
-			previewColorLight = null,
-			previewColorDark = null
-		),
-		Black(
-			darkScheme = BlackTheme,
-			styleName = "Black & White",
-			previewColorLight = Color.Black,
-			previewColorDark = Color.White
-		),
-		QuinacridoneMagenta(
-			lightScheme = QuinacridoneMagentaThemeLightColors,
-			darkScheme = QuinacridoneMagentaThemeDarkColors,
-			styleName = "Quinacridone Magenta",
-			previewColorLight = QuinacridoneMagentaThemeLightColors.primary,
-			previewColorDark = QuinacridoneMagentaThemeDarkColors.primary
-		),
-	}
+    enum class ThemeStyle(
+        val lightScheme: ColorScheme? = null,
+        val darkScheme: ColorScheme? = null,
+        val styleName: String,
+        val previewColorLight: Color?,
+        val previewColorDark: Color?
+    ) {
+        MaterialYou(
+            styleName = "Material You",
+            previewColorLight = null,
+            previewColorDark = null
+        ),
+        Black(
+            darkScheme = BlackTheme,
+            styleName = "Black & White",
+            previewColorLight = Color.Black,
+            previewColorDark = Color.White
+        ),
+        QuinacridoneMagenta(
+            lightScheme = QuinacridoneMagentaThemeLightColors,
+            darkScheme = QuinacridoneMagentaThemeDarkColors,
+            styleName = "Quinacridone Magenta",
+            previewColorLight = QuinacridoneMagentaThemeLightColors.primary,
+            previewColorDark = QuinacridoneMagentaThemeDarkColors.primary
+        ),
+    }
 
-	companion object {
-		val instance = Theme()
-	}
+    companion object {
+        val instance = Theme()
+    }
 
-	var isDarkTheme by mutableStateOf(false)
-	var themeStyle by mutableStateOf(ThemeStyle.MaterialYou)
+    var isDarkTheme by mutableStateOf(false)
+    var themeStyle by mutableStateOf(ThemeStyle.MaterialYou)
 
-	@Composable
-	fun Init(
-		isSystemInDarkTheme: Boolean = isSystemInDarkTheme(),
-	) {
-		val context = LocalContext.current
-		val settingsPreferences = context.getSharedPreferences(SETTINGS_KEY, Context.MODE_PRIVATE)
+    @Composable
+    fun Init(
+        isSystemInDarkTheme: Boolean = isSystemInDarkTheme(),
+    ) {
+        val context = LocalContext.current
+        val settingsPreferences = context.getSharedPreferences(SETTINGS_KEY, Context.MODE_PRIVATE)
 
-		isDarkTheme = when (settingsPreferences.getString(THEME, "System")) {
-			"System" -> { isSystemInDarkTheme }
-			"Dark" -> { true }
-			"Light" -> { false }
-			else -> { isSystemInDarkTheme }
-		}
+        isDarkTheme = when (settingsPreferences.getString(THEME, "System")) {
+            "System" -> { isSystemInDarkTheme }
+            "Dark" -> { true }
+            "Light" -> { false }
+            else -> { isSystemInDarkTheme }
+        }
 
-		themeStyle = when (settingsPreferences.getString(STYLE, "MaterialYou")) {
-			ThemeStyle.MaterialYou.name -> { ThemeStyle.MaterialYou }
-			ThemeStyle.Black.name -> { ThemeStyle.Black }
-			ThemeStyle.QuinacridoneMagenta.name -> { ThemeStyle.QuinacridoneMagenta }
-			else -> { ThemeStyle.MaterialYou }
-		}
-	}
+        themeStyle = when (settingsPreferences.getString(STYLE, "MaterialYou")) {
+            ThemeStyle.MaterialYou.name -> { ThemeStyle.MaterialYou }
+            ThemeStyle.Black.name -> { ThemeStyle.Black }
+            ThemeStyle.QuinacridoneMagenta.name -> { ThemeStyle.QuinacridoneMagenta }
+            else -> { ThemeStyle.MaterialYou }
+        }
+    }
 }
 
 @Composable
 fun DynamicIslandTheme(
-	darkTheme: Boolean = isSystemInDarkTheme(),
-	style: Theme.ThemeStyle = Theme.instance.themeStyle,
-	// Dynamic color is available on Android 12+
-	content: @Composable () -> Unit
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    style: Theme.ThemeStyle = Theme.instance.themeStyle,
+    // Dynamic color is available on Android 12+
+    content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
     // An AccessibilityService has no Activity window. Only update system bars
@@ -101,22 +101,22 @@ fun DynamicIslandTheme(
         }
     }
 
-	MaterialTheme(
-		colorScheme = when(style) {
-			Theme.ThemeStyle.MaterialYou -> {
-				if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-			}
-			else -> {
-				if (darkTheme) {
-					style.darkScheme ?: style.lightScheme ?: dynamicDarkColorScheme(context)
-				} else {
-					style.lightScheme ?: style.darkScheme ?: dynamicLightColorScheme(context)
-				}
-			}
-		},
-		typography = Typography,
-		content = content
-	)
+    MaterialTheme(
+        colorScheme = when(style) {
+            Theme.ThemeStyle.MaterialYou -> {
+                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            }
+            else -> {
+                if (darkTheme) {
+                    style.darkScheme ?: style.lightScheme ?: dynamicDarkColorScheme(context)
+                } else {
+                    style.lightScheme ?: style.darkScheme ?: dynamicLightColorScheme(context)
+                }
+            }
+        },
+        typography = Typography,
+        content = content
+    )
 }
 
 private fun Context.findActivity(): Activity? = when (this) {

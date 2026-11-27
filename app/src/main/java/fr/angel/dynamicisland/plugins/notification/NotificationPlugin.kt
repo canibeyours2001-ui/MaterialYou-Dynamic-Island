@@ -91,7 +91,7 @@ class NotificationPlugin(
                 // Update notification meta
                 notificationMeta.value = NotificationMeta(
                     title = extras.getCharSequence("title")?.toString(),
-                    body = notification.notification.extras.getCharSequence("android.text")?.toString() ?: "",
+                    body = extras.getString("body") ?: notification.notification.extras.getCharSequence("android.text")?.toString().orEmpty(),
                     id = extras.getInt("id"),
                     iconDrawable = notification.notification.smallIcon.loadDrawable(context) ?: return,
                     packageName = extras.getString("package_name") ?: "fr.angel.dynamicisland",

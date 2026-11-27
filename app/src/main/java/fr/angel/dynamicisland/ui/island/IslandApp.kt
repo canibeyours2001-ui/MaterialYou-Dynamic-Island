@@ -170,7 +170,12 @@ fun IslandApp(
                             .padding(top = islandView.yPosition)
                             .width(width)
                             .height(height)
-                            .offset(x = islandView.xPosition),
+                            .offset(
+                                x = islandView.xPosition +
+                                    (if (IslandSettings.instance.autoAlignCutout &&
+                                        IslandSettings.instance.gravity == IslandGravity.Center
+                                    ) IslandSettings.instance.cutoutOffsetDp.dp else 0.dp)
+                            ),
                         contentAlignment = when (IslandSettings.instance.gravity) {
                             IslandGravity.Center -> Alignment.TopCenter
                             IslandGravity.Left -> Alignment.TopStart

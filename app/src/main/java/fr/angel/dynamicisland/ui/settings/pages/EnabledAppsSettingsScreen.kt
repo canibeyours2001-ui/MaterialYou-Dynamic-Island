@@ -1,5 +1,6 @@
 package fr.angel.dynamicisland.ui.settings.pages
 
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import androidx.compose.foundation.Image
@@ -34,7 +35,15 @@ fun EnabledAppsSettingsScreen() {
 	val apps = remember { mutableStateListOf<PackageInfo>() }
 	LaunchedEffect(context) {
         val installed = withContext(Dispatchers.IO) {
-            context.packageManager.getInstalledPackages(0)
+            // Query only launcher-visible packages declared under <queries> in the
+            // manifest. Android 11+ correctly restricts package visibility.
+            val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            context.packageManager.queryIntentActivities(launcher, 0)
+                .mapNotNull { resolve ->
+                    val name = resolve.activityInfo?.packageName ?: return@mapNotNull null
+                    runCatching { context.packageManager.getPackageInfo(name, 0) }.getOrNull()
+                }
+                .distinctBy { it.packageName }
                 .filter { info ->
                     val application = info.applicationInfo
                     application != null && application.flags and ApplicationInfo.FLAG_SYSTEM == 0

@@ -43,6 +43,15 @@ jobs:
             echo "::endgroup::"
             exit 1
           fi
+      - name: Verify QA debug signature and record checksums
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK"
+          (cd app/build/outputs/apk/debug && sha256sum app-debug.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -71,6 +80,14 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
+      - name: Install Android 36 platform and build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -1)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
       - name: Enable Linux KVM acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

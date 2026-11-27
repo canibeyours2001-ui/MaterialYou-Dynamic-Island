@@ -10,14 +10,14 @@ The app declares API 31+ (Android 12 and later), with target SDK 36.
 | Music art, play/pause/skip | MediaSessionManager | Depends on other apps exposing media sessions |
 | Multiple simultaneous activities | Priority queue by plugin + horizontal swipes | UI gestures need physical verification; not system-level Live Activities |
 | Spring morphing | Compose animation state for width, height, corner radius | No measured 60/90/120-Hz frame-time benchmark yet |
-| Accessibility | Reduced motion and explicit service disclosure | TalkBack and animation interruption need manual QA |
+| Accessibility | Reduced motion, haptic toggle, Android accessibility-service disclosure | TalkBack and animation interruption need manual QA |
 | Themes | Wallpaper-based Material You, OLED black, light/dark | Color contrast testing needed |
-| Island positioning | User-adjustable size, gravity and X/Y offsets | Camera cutout automatic pixel alignment not yet guaranteed |
+| Island positioning | User-adjustable size, gravity and X/Y offsets; optional cutout alignment from display insets | Camera cutout reporting differs among OEMs; needs device testing |
 | Timers / navigation | Generic notification cards | Dedicated time-to-arrival/timer APIs not implemented |
 | Earbud battery / Bluetooth | Not implemented | Requires runtime BLUETOOTH_CONNECT and hardware support |
 | Screen recording indicator | Not implemented | Other apps' recording state is not generally exposed to normal apps |
 | Calls | Notification-based where apps provide notifications | No privileged telecom integration |
-| Downloads / hotspot | Generic notifications only | Native hotspot telemetry is restricted |
+| Downloads / hotspot | Extracts reported notification progress percentage | No privileged download/hotspot APIs; values depend on the source app |
 | Locked screen | Optional toggle | OEM-specific behavior varies |
 | Root | Not required | Deliberately avoids hidden/privileged APIs |
 

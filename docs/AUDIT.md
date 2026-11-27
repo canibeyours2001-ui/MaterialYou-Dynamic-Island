@@ -31,3 +31,18 @@ Baseline: fork of Angel-Studio/MaterialYou-Dynamic-Island, main commit `91dc9a16
 A release is NOT complete until source builds, lint and unit tests pass; R8 minification succeeds; licensing is confirmed; a persistent private signing key is configured; APK signature is verified; and physical/emulator install plus core interaction checks are documented.
 
 Avoid assuming successful functionality on Xiaomi HyperOS 2 without testing.
+
+
+## Dependency compatibility finding (November 2026)
+November 2026 AndroidX artifacts (Compose BOM 2026.11, Material 3 1.5,
+Navigation 2.10.2, Core 1.19) require **compileSdk 37 and AGP 9.1+**.
+Using those on compileSdk 36/AGP 8.13.2 caused 38 AAR metadata errors in CI.
+The branch therefore pins tested-for-compilation API 36 versions rather than
+forcing an unverified AGP 9 and API 37 migration. Android Studio's newer-version
+warnings for those intentionally pinned libraries are documented, not suppressed.
+
+## Release blocker (legal and signing)
+The original upstream has no explicit license in its Git tree or GitHub metadata.
+Public availability and the phrase "open-sourced" in README do not by themselves
+grant permission to distribute derivative binary APKs. Confirmation is required
+before any public release. The prior signing key is also unavailable.

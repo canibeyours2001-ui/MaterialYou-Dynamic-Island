@@ -14,6 +14,7 @@ import fr.angel.dynamicisland.island.IslandSettings
 import fr.angel.dynamicisland.model.ACTION_CLOSE
 import fr.angel.dynamicisland.model.ACTION_OPEN_CLOSE
 import fr.angel.dynamicisland.model.NOTIFICATION_POSTED
+import fr.angel.dynamicisland.model.ProgressLabel
 import fr.angel.dynamicisland.model.NOTIFICATION_REMOVED
 
 class NotificationService : NotificationListenerService() {
@@ -50,6 +51,7 @@ class NotificationService : NotificationListenerService() {
 
     override fun onCreate() {
         super.onCreate()
+        IslandSettings.instance.loadSettings(applicationContext)
         instance = this
         ContextCompat.registerReceiver(
             this,
@@ -84,7 +86,12 @@ class NotificationService : NotificationListenerService() {
             putExtra("category", notification.category)
             putExtra("time", sbn.postTime)
             putExtra("title", notification.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString())
-            putExtra("body", notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+            val body = notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
+            val progressMax = notification.extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0)
+            val progress = notification.extras.getInt(Notification.EXTRA_PROGRESS, 0)
+            val indeterminate = notification.extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false)
+            val progressLabel = ProgressLabel.format(progress, progressMax, indeterminate)
+            putExtra("body", listOf(body, progressLabel).filter { it.isNotBlank() }.joinToString(" · "))
         })
     }
 

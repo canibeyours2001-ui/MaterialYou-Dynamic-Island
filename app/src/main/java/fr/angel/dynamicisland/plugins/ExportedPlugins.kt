@@ -20,10 +20,15 @@ class ExportedPlugins {
 				description = "Allow Dynamic Island to listen to notifications and display them",
 				requestIntent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
 			) { override fun checkPermission(context: Context) : Boolean {
-					val contentResolver = context.contentResolver
-					val enabledNotificationListeners = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
-					val packageName = packageName
-					return enabledNotificationListeners != null && enabledNotificationListeners.contains(packageName)
+                    val enabled = Settings.Secure.getString(
+                        context.contentResolver,
+                        "enabled_notification_listeners"
+                    ) ?: return false
+                    // Match a complete component package, not a substring of another app's name.
+                    return enabled.split(':').any { flattened ->
+                        android.content.ComponentName.unflattenFromString(flattened)?.packageName ==
+                            context.packageName
+                    }
 				} }
 		)
 

@@ -39,7 +39,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var settingsPreferences: SharedPreferences
 
     companion object {
-        lateinit var instance: MainActivity
+        private var activityReference: java.lang.ref.WeakReference<MainActivity>? = null
+        val instance: MainActivity
+            get() = activityReference?.get()
+                ?: error("MainActivity is not available")
     }
 
     var actions = mutableStateListOf<@Composable () -> Unit>()
@@ -47,7 +50,7 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        instance = this
+        activityReference = java.lang.ref.WeakReference(this)
 
         settingsPreferences = getSharedPreferences(SETTINGS_KEY, Context.MODE_PRIVATE)
 
@@ -170,6 +173,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        if (activityReference?.get() === this) activityReference = null
         super.onDestroy()
         // Un-invert theme in app
         settingsPreferences.edit { putBoolean(THEME_INVERTED, false) }

@@ -8,7 +8,7 @@ and release signing must be verified before public APK distribution.
 **[Build / QA artifacts](https://github.com/canibeyours2001-ui/MaterialYou-Dynamic-Island/actions/workflows/android-ci.yml)** ·
 **[Fork releases (none yet)](https://github.com/canibeyours2001-ui/MaterialYou-Dynamic-Island/releases)**
 
-Android 12+ (API 31) is the declared minimum. Uses notification listener and accessibility overlay with explicit user grants. No root or bootloader unlock is required.
+Android 12+ (API 31) is the declared minimum. Uses notification listener and accessibility overlay with explicit user grants. No root, special draw-over-other-apps permission, or bootloader unlock is required.
 
 ## Features currently implemented in the development branch
 
@@ -18,6 +18,9 @@ Android 12+ (API 31) is the declared minimum. Uses notification listener and acc
 - Material You, OLED-friendly black theme, and position / size / gravity settings.
 - Interruptible spring-based pill expansion and collapse, with reduced-motion and speed controls.
 - Hide island when idle (default), or keep a small idle island visible.
+- Auto-center against the actual display cutout when provided by Android, or use manual offsets.
+- Configurable haptic feedback on long-press and activity navigation.
+- Notification-provided progress percentages for downloads and other ongoing tasks.
 - Internal, on-device notification handling; no Firebase or analytics SDK required.
 
 ## Builds and installation

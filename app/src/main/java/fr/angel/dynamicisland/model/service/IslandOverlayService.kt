@@ -7,6 +7,7 @@ import android.content.Intent.ACTION_SCREEN_OFF
 import android.content.Intent.ACTION_SCREEN_ON
 import android.content.res.Configuration
 import android.graphics.PixelFormat
+import kotlin.math.roundToInt
 import android.util.Log
 import android.view.*
 import android.view.WindowManager.LayoutParams.*
@@ -49,6 +50,8 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
         PixelFormat.TRANSLUCENT
     ).apply {
         gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        // Draw at the camera cutout area when Android supports overlay cutout layout.
+        layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
     }
 
     private lateinit var settingsPreferences: SharedPreferences
@@ -144,6 +147,18 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
         params: WindowManager.LayoutParams
     ) {
         val composeView = ComposeView(this)
+        composeView.setOnApplyWindowInsetsListener { view, insets ->
+            val topCutout = insets.displayCutout?.boundingRects
+                ?.filter { it.top <= (view.resources.displayMetrics.heightPixels * 0.15f) }
+                ?.minByOrNull { it.top }
+            val windowWidth = view.width.takeIf { it > 0 }
+                ?: windowManager.currentWindowMetrics.bounds.width()
+            val centerX = topCutout?.centerX() ?: windowWidth / 2
+            IslandSettings.instance.cutoutOffsetDp = (
+                (centerX - windowWidth / 2f) / resources.displayMetrics.density
+            ).roundToInt()
+            insets
+        }
         // Compose is hosted in a managed overlay window.
         composeView.setContent {
             // Listen for plugin changes
@@ -210,6 +225,7 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
         // Add the view to the window
         windowManager.addView(composeView, params)
         overlayView = composeView
+        composeView.requestApplyInsets()
     }
 
     override fun onDestroy() {
@@ -273,6 +289,7 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         Island.isInLandscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
+        overlayView?.requestApplyInsets()
         if (islandState is IslandViewState.Expanded) {
             islandState = IslandViewState.Expanded(newConfig)
         }

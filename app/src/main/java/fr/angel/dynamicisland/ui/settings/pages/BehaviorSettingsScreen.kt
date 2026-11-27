@@ -55,6 +55,16 @@ fun BehaviorSettingsScreen() {
         }
         item {
             SwitchSettingsItem(
+                title = "Automatically align with camera",
+                description = "Center the island on the camera cutout if Android exposes it",
+                checked = settings.autoAlignCutout
+            ) {
+                settings.autoAlignCutout = it
+                settings.applySettings(context)
+            }
+        }
+        item {
+            SwitchSettingsItem(
                 title = "Haptic feedback",
                 description = "Gentle feedback on expansion and activity switching",
                 checked = settings.hapticFeedback
