@@ -42,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.consume
 import kotlin.math.abs
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -111,9 +110,9 @@ fun IslandApp(
                     }
                     horizontalTravel = 0f
                 },
-                onHorizontalDrag = { change, delta ->
+                onHorizontalDrag = { _, delta ->
+                    // The gesture detector consumes drag changes after touch slop.
                     horizontalTravel += delta
-                    change.consume()
                 }
             )
         }

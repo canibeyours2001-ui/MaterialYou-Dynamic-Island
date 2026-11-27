@@ -1,5 +1,6 @@
 package fr.angel.dynamicisland.ui.settings.pages
 
+import androidx.core.content.edit
 import android.content.Context
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
@@ -14,7 +15,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -32,11 +34,14 @@ import kotlin.math.roundToInt
 fun PositionSizeSettingsScreen() {
 
 	val context = LocalContext.current
+    val windowSize = LocalWindowInfo.current.containerSize
+    val density = LocalDensity.current
+    val screenWidthDp = with(density) { windowSize.width.toDp().value }
+    val screenHeightDp = with(density) { windowSize.height.toDp().value }
 
 	// Shared Preferences
 	val settingsPreferences = context.getSharedPreferences(SETTINGS_KEY, Context.MODE_PRIVATE)
 
-	val (gravitySelectedOption, onGravityOptionSelected) = remember { mutableStateOf(settingsPreferences.getString(GRAVITY, IslandGravity.Center.name)) }
 
 	var expanded by remember { mutableStateOf(false) }
 	var gravity by rememberSaveable(stateSaver = TextFieldValue.Saver) {
@@ -85,10 +90,7 @@ fun PositionSizeSettingsScreen() {
 								gravity = TextFieldValue(islandGravity.name)
 								expanded = false
 
-								settingsPreferences
-									.edit()
-									.putString(GRAVITY, islandGravity.name)
-									.apply()
+								settingsPreferences.edit { putString(GRAVITY, islandGravity.name) }
 								IslandSettings.instance.gravity = IslandGravity.valueOf(islandGravity.name)
 							},
 						)
@@ -102,7 +104,7 @@ fun PositionSizeSettingsScreen() {
 				title = "Position X",
 				extension = ".dp",
 				value = IslandSettings.instance.positionX.toFloat(),
-				range = -LocalConfiguration.current.screenWidthDp.toFloat() / 2..LocalConfiguration.current.screenWidthDp.toFloat() / 2
+				range = -screenWidthDp / 2..screenWidthDp / 2
 			)
 			SettingsSlider(
 				onValueChange = { IslandSettings.instance.positionY = it.roundToInt() },
@@ -121,7 +123,7 @@ fun PositionSizeSettingsScreen() {
 				title = "Width",
 				extension = ".dp",
 				value = IslandSettings.instance.width.toFloat(),
-				range = IslandViewState.Opened.height.value * 3..LocalConfiguration.current.screenWidthDp.toFloat() - IslandViewState.Opened.yPosition.value * 2
+				range = IslandViewState.Opened.height.value * 3..(screenWidthDp - IslandViewState.Opened.yPosition.value * 2).coerceAtLeast(IslandViewState.Opened.height.value * 3 + 1)
 			)
 			SettingsSlider(
 				onValueChange = { IslandSettings.instance.height = it.roundToInt() },
@@ -129,7 +131,7 @@ fun PositionSizeSettingsScreen() {
 				title = "Height",
 				extension = ".dp",
 				value = IslandSettings.instance.height.toFloat(),
-				range = 1f..LocalConfiguration.current.screenHeightDp.toFloat() / 2
+				range = 1f..(screenHeightDp / 2).coerceAtLeast(1f)
 			)
 		}
 		item {

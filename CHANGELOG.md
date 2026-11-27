@@ -1,9 +1,15 @@
 # Changelog
 
-## Unreleased — 1.1.0-rc.1 (development)
-- Add Android build/lint/unit-test CI and a signing-secret-gated release workflow.
-- Configure R8 and resource shrinking for release builds.
-- Begin security, notification consistency and lifecycle hardening.
-- Document upstream license, signing continuity and device-testing gates.
+## 1.1.0-rc.1 — Development branch (NOT published)
+- Add GitHub Actions CI and gated signed-release workflow, including lint reports and build artifacts.
+- Harden notification dispatch using unique system keys; stop logging notification contents.
+- Reduce lifecycle leaks: plugin registration, media callbacks, Compose recomposer and window teardown.
+- Handle invalid battery levels, missing app labels, inactive system notifications and malformed settings.
+- Add configurable spring motion, motion reduction, idle-state behavior, and simultaneous activity switching.
+- Migrate notification dismissal toward Material 3 and remove unnecessary Firebase, Coil, Gson and Accompanist dependencies.
+- Improve settings persistence, accessibility navigation, and malformed input handling.
+- Update AndroidX dependencies, themed launcher icons, and remove unused template resources.
+- Add pure Kotlin unit tests for battery readings and activity cycling.
 
-**This is not a stable release.** Do not publish until build, runtime, permission and redistribution checks pass.
+**Not a release:** build/CI validation and real-device QA must pass, licensing must be confirmed,
+and signed installable APKs must be verified before a release tag.

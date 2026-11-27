@@ -1,5 +1,6 @@
 package fr.angel.dynamicisland
 
+import androidx.core.content.edit
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -63,7 +64,7 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         // Invert theme in app
-        settingsPreferences.edit().putBoolean(THEME_INVERTED, true).apply()
+        settingsPreferences.edit { putBoolean(THEME_INVERTED, true) }
         sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
 
         setContent {
@@ -171,21 +172,21 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         // Un-invert theme in app
-        settingsPreferences.edit().putBoolean(THEME_INVERTED, false).apply()
+        settingsPreferences.edit { putBoolean(THEME_INVERTED, false) }
         sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
     }
 
     override fun onStop() {
         super.onStop()
         // Un-invert theme in app
-        settingsPreferences.edit().putBoolean(THEME_INVERTED, false).apply()
+        settingsPreferences.edit { putBoolean(THEME_INVERTED, false) }
         sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
     }
 
     override fun onPause() {
         super.onPause()
         // Un-invert theme in app
-        settingsPreferences.edit().putBoolean(THEME_INVERTED, false).apply()
+        settingsPreferences.edit { putBoolean(THEME_INVERTED, false) }
         sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
     }
 
@@ -193,7 +194,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         ExportedPlugins.setupPermissions(this)
         // Invert theme in app
-        settingsPreferences.edit().putBoolean(THEME_INVERTED, true).apply()
+        settingsPreferences.edit { putBoolean(THEME_INVERTED, true) }
         sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))
     }
 }

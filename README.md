@@ -1,64 +1,45 @@
-###### Now open-sourced ! 🎉
-#### May get back to it soon :D
+# Material You Dynamic Island — Next Generation (development)
 
-| Stable                                                                                                                                                                                                                       | Alpha                                                                                                                                                                                                                            | Discord Server                                                                                                                                   | Play Store (soon)                                                                                                                                                                          | Ko-Fi                                                                                                                                  |
-|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
-| [![Stable Release](https://img.shields.io/github/release/Angel-Studio/Material-You-Dynamic-Island.svg?style=for-the-badge&maxAge=3600&label=DOWNLOAD)](https://github.com/Angel-Studio/Material-You-Dynamic-Island/releases) | [![Pre-Release)](https://img.shields.io/github/v/release/Angel-Studio/Material-You-Dynamic-Island?include_prereleases&label=DOWNLOAD&style=for-the-badge)](https://github.com/Angel-Studio/Material-You-Dynamic-Island/releases) | [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/8NfBrxKs4T) | [![Play Store](https://img.shields.io/badge/Google_Play-414141?style=for-the-badge&logo=google-play&logoColor=white)](https://play.google.com/store/apps/dev?id=8686550764558677121&gl=FR) | [![Ko-Fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/angelstudiofr) |
+This fork modernizes an experimental Android Dynamic Island overlay. **It is not a stable release.**
+The existing code remains on a review branch; build, on-device compatibility, redistribution rights,
+and release signing must be verified before public APK distribution.
 
-# <img src="./.github/readme-images/app-icon.png" width="40"> Material You - Dynamic Island
+**[Development pull request](https://github.com/canibeyours2001-ui/MaterialYou-Dynamic-Island/pull/1)** ·
+**[Build / QA artifacts](https://github.com/canibeyours2001-ui/MaterialYou-Dynamic-Island/actions/workflows/android-ci.yml)** ·
+**[Fork releases (none yet)](https://github.com/canibeyours2001-ui/MaterialYou-Dynamic-Island/releases)**
 
-> **Development fork:** [canibeyours2001-ui/MaterialYou-Dynamic-Island](https://github.com/canibeyours2001-ui/MaterialYou-Dynamic-Island). Work in progress. **No signed/stable APK has been verified or published by this fork.** The original project's distribution license and signing-key continuity require confirmation before a public release.
+Android 12+ (API 31) is the declared minimum. Uses notification listener and accessibility overlay with explicit user grants. No root or bootloader unlock is required.
 
-**[Check release downloads](https://github.com/canibeyours2001-ui/MaterialYou-Dynamic-Island/releases)** · [Build checks](https://github.com/canibeyours2001-ui/MaterialYou-Dynamic-Island/actions/workflows/android-ci.yml) · [Audit and roadmap](docs/AUDIT.md) · [Secure release guide](docs/RELEASING.md)
+## Features currently implemented in the development branch
 
-### <img src="https://3.bp.blogspot.com/-VVp3WvJvl84/X0Vu6EjYqDI/AAAAAAAAPjU/ZOMKiUlgfg8ok8DY8Hc-ocOvGdB0z86AgCLcBGAsYHQ/s1600/jetpack%2Bcompose%2Bicon_RGB.png" height="32"> Built with Jetpack Compose
-Material You Dynamic Island is a free Dynamic Island for Android API 31 (Android 12) and above.
+- Notifications with app action / inline reply, with per-app filtering.
+- Media playback cards, album art, playback actions and charging status.
+- Activity prioritization with swipe navigation when multiple activities are active.
+- Material You, OLED-friendly black theme, and position / size / gravity settings.
+- Interruptible spring-based pill expansion and collapse, with reduced-motion and speed controls.
+- Hide island when idle (default), or keep a small idle island visible.
+- Internal, on-device notification handling; no Firebase or analytics SDK required.
 
-## 🌟 Features
+## Builds and installation
 
-Features include:
-* Show a popup when a new notification income
-* Show a popup when a media is playing and allow you to control it
-* Show a popup when phone is charging displaying battery state and percentage
-* Customizable plugins
-* Customizable island
-* Select apps from which you would like to display notifications
-* Light, dark and amoled themes
-* Custom themes
+The PR CI job publishes QA artifacts if compilation succeeds. Debug builds use **Android's debug
+signing key** and must not be confused with a production release. Download from the linked
+GitHub Actions run's **Artifacts** section while signed in. The original app's signature may
+be different and incompatible with upgrades. Confirm compatibility, back up settings, and use
+an emulator or expendable test device before trying any development APK.
 
-## ⬇️ Download
-Get the app from our [releases page](https://github.com/Angel-Studio/Material-You-Dynamic-Island/releases).
+Stable distribution is blocked until permission to redistribute the original upstream code
+is confirmed. **No public APK download link is advertised as existing.**
 
-## 💟 Issues, Feature Requests and Contributing
+## Maintenance and safety
 
-Please make sure to read the full guidelines. Your issue may be closed without warning if you do not.
+See [feature compatibility](docs/FEATURE_MATRIX.md), [performance testing](docs/PERFORMANCE.md),
+[audit](docs/AUDIT.md), [changelog](CHANGELOG.md), and [secure release procedure](docs/RELEASING.md).
 
-<details><summary>Issues</summary>
+## Attribution and licensing
 
-1. **Before reporting a new issue, take a look at the [changelog](https://github.com/Angel-Studio/Material-You-Dynamic-Island/releases) and the already opened [issues](https://github.com/Angel-Studio/Material-You-Dynamic-Island/issues).**
-2. If you are unsure, ask here: [![Discord](https://img.shields.io/discord/1065299087030747216.svg)](https://discord.gg/8NfBrxKs4T)
-
-</details>
-
-<details><summary>Bugs</summary>
-
-* Include version (**Settings → About → Version**)
- * If not latest, try updating, it may have already been solved
-* Include steps to reproduce (if not obvious from description)
-* Include screenshot (if needed)
-* If it could be device-dependent, try reproducing on another device (if possible)
-* Don't group unrelated requests into one issue
-
-</details>
-
-<details><summary>Feature Requests</summary>
-
-* Write a detailed issue, explaining what it should do or how.
-* Include screenshot (if needed)
-
-</details>
-
-<details><summary>Code of Conduct</summary>
-
-See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
-</details>
+Based on [Angel-Studio / MaterialYou-Dynamic-Island](https://github.com/Angel-Studio/MaterialYou-Dynamic-Island).
+The upstream repository currently has **no declared open-source LICENSE**. Its public availability
+does not by itself authorize distribution of modified compiled APKs. All original attribution
+and notices are retained in Git history; obtain explicit permission or a compatible upstream
+license before publishing a public release. Do not invent a license.

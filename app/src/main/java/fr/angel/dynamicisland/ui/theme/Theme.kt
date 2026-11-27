@@ -1,6 +1,8 @@
 package fr.angel.dynamicisland.ui.theme
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -9,7 +11,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import androidx.core.view.WindowCompat
 import fr.angel.dynamicisland.model.SETTINGS_KEY
 import fr.angel.dynamicisland.model.STYLE
 import fr.angel.dynamicisland.model.THEME
@@ -83,26 +85,21 @@ fun DynamicIslandTheme(
 	// Dynamic color is available on Android 12+
 	content: @Composable () -> Unit
 ) {
-	val context = LocalContext.current
-	val systemUiController = rememberSystemUiController()
-
-	SideEffect {
-		systemUiController.setSystemBarsColor(
-			color = Color.Transparent,
-			darkIcons = when(style) {
-				Theme.ThemeStyle.MaterialYou -> {
-					!darkTheme
-				}
-				else -> {
-					if (darkTheme) {
-						style.darkScheme == null
-					} else {
-						style.lightScheme != null
-					}
-				}
-			}
-		)
-	}
+    val context = LocalContext.current
+    // An AccessibilityService has no Activity window. Only update system bars
+    // when this theme is actually hosted inside a normal Activity.
+    val activity = remember(context) { context.findActivity() }
+    SideEffect {
+        activity?.let {
+            val darkIcons = when (style) {
+                Theme.ThemeStyle.MaterialYou -> !darkTheme
+                else -> if (darkTheme) style.darkScheme == null else style.lightScheme != null
+            }
+            val controller = WindowCompat.getInsetsController(it.window, it.window.decorView)
+            controller.isAppearanceLightStatusBars = darkIcons
+            controller.isAppearanceLightNavigationBars = darkIcons
+        }
+    }
 
 	MaterialTheme(
 		colorScheme = when(style) {
@@ -120,4 +117,10 @@ fun DynamicIslandTheme(
 		typography = Typography,
 		content = content
 	)
+}
+
+private fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

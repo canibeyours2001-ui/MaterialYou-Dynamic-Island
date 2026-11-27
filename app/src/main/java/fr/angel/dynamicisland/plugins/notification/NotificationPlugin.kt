@@ -20,13 +20,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Button
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -145,7 +147,7 @@ class NotificationPlugin(
         ContextCompat.registerReceiver(context, mBroadcastReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
-    @OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
+    @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
     @Composable
     override fun Composable(
         sharedTransitionScope: SharedTransitionScope,
@@ -157,9 +159,9 @@ class NotificationPlugin(
         // Cancel notification timeout
         handler.removeCallbacksAndMessages(null)
 
-        val dismissState = rememberDismissState(
-            confirmStateChange = {
-                if (it == DismissValue.DismissedToStart || it == DismissValue.DismissedToEnd) {
+        val dismissState = rememberSwipeToDismissBoxState(
+            confirmValueChange = {
+                if (it == SwipeToDismissBoxValue.StartToEnd || it == SwipeToDismissBoxValue.EndToStart) {
                     context.sendBroadcast(Intent(ACTION_CLOSE).apply {
                         setPackage(context.packageName)
                         putExtra("key", meta.statusBarNotification?.key)
@@ -168,12 +170,11 @@ class NotificationPlugin(
                 true
             }
         )
-        SwipeToDismiss(
+        SwipeToDismissBox(
             state = dismissState,
-            dismissThresholds = { FractionalThreshold(0.5f) },
-            background = {
+            backgroundContent = {
                 when (dismissState.dismissDirection) {
-                    DismissDirection.StartToEnd -> {
+                    SwipeToDismissBoxValue.StartToEnd -> {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -188,7 +189,7 @@ class NotificationPlugin(
                             )
                         }
                     }
-                    DismissDirection.EndToStart -> {
+                    SwipeToDismissBoxValue.EndToStart -> {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -212,7 +213,6 @@ class NotificationPlugin(
                     }
                 }
             },
-            directions = setOf(DismissDirection.StartToEnd, DismissDirection.EndToStart),
         ) {
             Column(
                 modifier = Modifier

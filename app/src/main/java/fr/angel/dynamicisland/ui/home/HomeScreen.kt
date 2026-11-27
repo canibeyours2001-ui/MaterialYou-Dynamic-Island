@@ -1,11 +1,12 @@
 package fr.angel.dynamicisland.ui.home
 
+import androidx.core.content.edit
 import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
 import android.content.Context.POWER_SERVICE
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -204,7 +205,7 @@ fun HomeScreen(
                 DisclosureCard(
                     onAcceptClick = {
                         disclosureAccepted = true
-                        settingsPreferences.edit().putBoolean(DISCLOSURE_ACCEPTED, true).apply()
+                        settingsPreferences.edit { putBoolean(DISCLOSURE_ACCEPTED, true) }
                     },
                     onShowClick = onShowDisclosureClick
                 )
@@ -229,8 +230,7 @@ fun HomeScreen(
                     startForResult = startForBatteryOptimizationResult,
                     onDismiss = {
                         optimizationDismissed = true
-                        settingsPreferences.edit().putBoolean(BATTERY_OPTIMIZATION_DISMISSED, true)
-                            .apply()
+                        settingsPreferences.edit { putBoolean(BATTERY_OPTIMIZATION_DISMISSED, true) }
                     }
                 )
             }
@@ -500,7 +500,7 @@ fun OptimizationCard(
                         startForResult.launch(
                             Intent().apply {
                                 action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-                                data = Uri.parse("package:${context.packageName}")
+                                data = "package:${context.packageName}".toUri()
                             }
                         )
                     }
@@ -607,7 +607,7 @@ fun PermissionsCard(
                         startForResult.launch(
                             Intent(
                                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                Uri.parse("package:$packageName")
+                                "package:$packageName".toUri()
                             ), null
                         )
                     }

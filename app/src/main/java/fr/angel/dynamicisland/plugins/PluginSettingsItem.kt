@@ -1,5 +1,6 @@
 package fr.angel.dynamicisland.plugins
 
+import androidx.core.content.edit
 import android.content.Context
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
@@ -15,9 +16,9 @@ sealed class PluginSettingsItem {
 		var id: String,
 		var value: MutableState<Boolean> = mutableStateOf(false),
 		val onValueChange: (Context, Boolean) -> Unit = { context, enabled ->
-			val editor = context.getSharedPreferences(PLUGIN_SETTINGS_KEY, Context.MODE_PRIVATE).edit()
-			editor.putBoolean(id, enabled)
-			editor.apply()
+			context.getSharedPreferences(PLUGIN_SETTINGS_KEY, Context.MODE_PRIVATE).edit {
+                putBoolean(id, enabled)
+            }
 
 			value.value = enabled
 		},
