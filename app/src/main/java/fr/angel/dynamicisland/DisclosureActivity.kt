@@ -92,7 +92,7 @@ class DisclosureActivity : ComponentActivity() {
 					)
 				),
 			)
-			var step by remember { mutableStateOf(0) }
+			var step by remember { mutableIntStateOf(0) }
 
 			DynamicIslandTheme(
 				darkTheme = Theme.instance.isDarkTheme,

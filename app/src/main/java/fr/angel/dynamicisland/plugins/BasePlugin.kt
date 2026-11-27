@@ -25,10 +25,15 @@ abstract class BasePlugin {
 
 	abstract fun canExpand(): Boolean
 
-	fun onCreate(host: PluginHost) {
-		this.host = host
-		onPluginCreate()
-	}
+    fun onCreate(host: PluginHost) {
+        this.host = host
+        onPluginCreate()
+    }
+
+    /** Prevent retaining a destroyed AccessibilityService through global plugin instances. */
+    fun releaseHost() {
+        host = null
+    }
 
 	abstract fun onPluginCreate()
 

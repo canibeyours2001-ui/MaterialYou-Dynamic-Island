@@ -25,8 +25,8 @@ Android 12+ (API 31) is the declared minimum. Uses notification listener and acc
 
 ## Builds and installation
 
-The PR CI job publishes QA artifacts if compilation succeeds. Debug builds use **Android's debug
-signing key** and must not be confused with a production release. Download from the linked
+The PR CI job publishes QA artifacts if compilation succeeds. Debug builds and optimized **qaRelease** builds use **Android's debug
+signing key**, not a production signing key, and must not be confused with a public stable release. Download from the linked
 GitHub Actions run's **Artifacts** section while signed in. The original app's signature may
 be different and incompatible with upgrades. Confirm compatibility, back up settings, and use
 an emulator or expendable test device before trying any development APK.

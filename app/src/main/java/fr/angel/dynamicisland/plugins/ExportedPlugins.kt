@@ -38,11 +38,15 @@ class ExportedPlugins {
 			BatteryPlugin(),
 		)
 
-		fun setupPermissions(context: Context) {
-			permissions.forEach { (id, permission) ->
-				permission.granted.value = permission.checkPermission(context)
-			}
-		}
+        fun setupPermissions(context: Context) {
+            permissions.forEach { (_, permission) ->
+                permission.granted.value = permission.checkPermission(context)
+            }
+            // Read persisted enablement for the shared instances seen by settings and overlay.
+            plugins.forEach { plugin ->
+                plugin.enabled.value = plugin.isPluginEnabled(context)
+            }
+        }
 
 		fun getPlugin(pluginId: String): BasePlugin {
 			return plugins.first { it.id == pluginId }

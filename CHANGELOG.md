@@ -12,6 +12,11 @@
 - Add optional camera cutout alignment, haptic feedback, and metadata-backed notification progress.
 - Add Android 15 emulator install/startup smoke-test job, APK debug-signature checks and SHA-256 in CI.
 - Add JUnit tests for notification progress formatting and enhanced permission/lifecycle cleanup.
+- Consolidate settings and overlay plugin instances so toggles stay synchronized after reopening the app.
+- Fix package-exact notification-listener permission checking and reinitialize plugins when user returns from system Settings.
+- Remove unused raw/dimension assets, collapse obsolete drawable/mipmap API qualifiers, and use primitive Compose state classes for reduced boxing.
+- Attach QA APK SHA-256 checksum files to Actions build artifacts.
+- Add an optimized, R8-minified, debug-key-signed `qaRelease` APK so the emulator can test a release-like install without production signing secrets.
 - Update AndroidX dependencies, themed launcher icons, and remove unused template resources.
 - Add pure Kotlin unit tests for battery readings and activity cycling.
 

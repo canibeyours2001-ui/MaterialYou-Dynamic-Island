@@ -50,7 +50,7 @@ class BatteryPlugin(
 	),
 ) : BasePlugin() {
 
-	var batteryPercent by mutableStateOf(0)
+	var batteryPercent by mutableIntStateOf(0)
 
 	override fun canExpand(): Boolean { return false } // TODO: Add expandable function
 	

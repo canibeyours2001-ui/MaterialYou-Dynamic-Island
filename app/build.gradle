@@ -40,6 +40,13 @@ android {
             }
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+        // QA-only optimized APK; uses the standard ephemeral Android debug signer.
+        // Never publish this as a production release or rely on it for update continuity.
+        qaRelease {
+            initWith release
+            matchingFallbacks = ['release']
+            signingConfig signingConfigs.debug
+        }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

@@ -46,3 +46,13 @@ The original upstream has no explicit license in its Git tree or GitHub metadata
 Public availability and the phrase "open-sourced" in README do not by themselves
 grant permission to distribute derivative binary APKs. Confirmation is required
 before any public release. The prior signing key is also unavailable.
+
+
+## Latest verified CI findings
+The first fully passing `checks` job in run `46055907423` includes
+debug/release builds, Kotlin unit tests, Android lint, R8 and debug APK
+signing verification. Its lint output contains **zero errors, 18 warnings,
+and 8 hints**. Most warnings are intentionally pinned SDK37/AGP9-dependent
+libraries; four genuinely unused raw resources and obsolete resource folders
+were addressed in the following development commit, as were eight primitive
+Compose state hints. Verification of those follow-up changes is still required.

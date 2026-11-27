@@ -5,13 +5,11 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import fr.angel.dynamicisland.plugins.battery.BatteryPlugin
-import fr.angel.dynamicisland.plugins.media.MediaSessionPlugin
-import fr.angel.dynamicisland.plugins.notification.NotificationPlugin
 
 /** Registers active plugin listeners once and reconciles toggles on settings changes. */
 class PluginManager(private val context: Context, private val host: PluginHost) {
-    val allPlugins = listOf(NotificationPlugin(), MediaSessionPlugin(), BatteryPlugin())
+    // Share plugin instances with the settings UI so enabled/permission state stays consistent.
+    val allPlugins: List<BasePlugin> = ExportedPlugins.plugins
     val activePlugins = mutableStateListOf<BasePlugin>()
     private val startedPlugins = mutableSetOf<String>()
     private var selectedPluginId by mutableStateOf<String?>(null)
@@ -38,18 +36,23 @@ class PluginManager(private val context: Context, private val host: PluginHost) 
                         startedPlugins.remove(plugin.id)
                         requestDismiss(plugin)
                         runCatching { plugin.onDestroy() }
+                        plugin.releaseHost()
                     }
                 }
                 !plugin.active && startedPlugins.remove(plugin.id) -> {
                     requestDismiss(plugin)
                     plugin.onDestroy()
+                    plugin.releaseHost()
                 }
             }
         }
     }
 
     fun onDestroy() {
-        allPlugins.filter { startedPlugins.remove(it.id) }.forEach { it.onDestroy() }
+        allPlugins.filter { startedPlugins.remove(it.id) }.forEach {
+            it.onDestroy()
+            it.releaseHost()
+        }
         activePlugins.clear()
         selectedPluginId = null
     }

@@ -33,7 +33,7 @@ jobs:
       - name: Build, test, lint, and check R8 release build
         run: |
           chmod +x gradlew
-          if ! ./gradlew --no-daemon --stacktrace --continue :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:assembleRelease; then
+          if ! ./gradlew --no-daemon --stacktrace --continue :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:assembleRelease :app:assembleQaRelease; then
             echo "::group::Android lint report (all issues)"
             if [ -f app/build/reports/lint-results-debug.txt ]; then
               cat app/build/reports/lint-results-debug.txt
@@ -52,13 +52,20 @@ jobs:
           test -s "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK"
           (cd app/build/outputs/apk/debug && sha256sum app-debug.apk > SHA256SUMS.txt)
+          QA="app/build/outputs/apk/qaRelease/app-qaRelease.apk"
+          test -s "$QA"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$QA"
+          (cd app/build/outputs/apk/qaRelease && sha256sum app-qaRelease.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: android-builds-for-testing
           path: |
             app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/debug/SHA256SUMS.txt
             app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/qaRelease/*.apk
+            app/build/outputs/apk/qaRelease/SHA256SUMS.txt
           if-no-files-found: warn
           retention-days: 7
       - uses: actions/upload-artifact@v4
@@ -105,8 +112,9 @@ jobs:
           script: |
             set -euo pipefail
             chmod +x gradlew
-            ./gradlew --no-daemon :app:connectedDebugAndroidTest
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            ./gradlew --no-daemon :app:connectedDebugAndroidTest :app:assembleQaRelease
+            # Exercise the R8-minified QA binary, not only the unminified debug variant.
+            adb install -r app/build/outputs/apk/qaRelease/app-qaRelease.apk
             adb logcat -c
             mkdir -p emulator-artifacts
             adb shell am force-stop fr.angel.dynamicisland
@@ -116,10 +124,8 @@ jobs:
             adb shell dumpsys meminfo fr.angel.dynamicisland > emulator-artifacts/meminfo.txt
             adb shell dumpsys gfxinfo fr.angel.dynamicisland framestats > emulator-artifacts/frame-stats.txt
             adb exec-out screencap -p > emulator-artifacts/first-launch.png
-            if adb logcat -d -s AndroidRuntime:E | grep -q "FATAL EXCEPTION"; then
-              adb logcat -d -s AndroidRuntime:E | tail -100
-              exit 1
-            fi
+            adb logcat -d -s AndroidRuntime:E > emulator-artifacts/android-runtime.log
+            ! grep -q 'FATAL EXCEPTION' emulator-artifacts/android-runtime.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:

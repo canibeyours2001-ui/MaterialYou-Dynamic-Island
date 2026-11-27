@@ -22,6 +22,7 @@ import androidx.core.view.WindowCompat
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import fr.angel.dynamicisland.model.SETTINGS_KEY
+import fr.angel.dynamicisland.model.SETTINGS_CHANGED
 import fr.angel.dynamicisland.model.SETTINGS_THEME_INVERTED
 import fr.angel.dynamicisland.model.THEME_INVERTED
 import fr.angel.dynamicisland.navigation.*
@@ -197,6 +198,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         ExportedPlugins.setupPermissions(this)
+        // The user may have granted or revoked notification listener access in Settings.
+        // Reconcile plugin listeners without forcing a service restart.
+        sendBroadcast(Intent(SETTINGS_CHANGED).setPackage(packageName))
         // Invert theme in app
         settingsPreferences.edit { putBoolean(THEME_INVERTED, true) }
         sendBroadcast(Intent(SETTINGS_THEME_INVERTED).setPackage(packageName))

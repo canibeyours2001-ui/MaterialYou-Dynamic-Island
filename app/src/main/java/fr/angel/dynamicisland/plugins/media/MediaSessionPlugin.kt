@@ -80,9 +80,9 @@ class MediaSessionPlugin(
     private var callbackMap = mutableStateMapOf<String, MediaCallback>()
 
     // private var mediaStruct by mutableStateOf<MediaStruct?>(null)
-    private var songPosition by mutableStateOf(0f)
-    private var duration: Long by mutableStateOf(0)
-    private var elapsed: Long by mutableStateOf(0)
+    private var songPosition by mutableFloatStateOf(0f)
+    private var duration: Long by mutableLongStateOf(0)
+    private var elapsed: Long by mutableLongStateOf(0)
 
     private val listenerForActiveSessions =
         OnActiveSessionsChangedListener { controllers ->
@@ -164,7 +164,7 @@ class MediaSessionPlugin(
         val controls = controller.transportControls
 
         var isDragging by remember { mutableStateOf(false) }
-        var draggedPosition by remember { mutableStateOf(0f) }
+        var draggedPosition by remember { mutableFloatStateOf(0f) }
 
         LaunchedEffect(controller.playbackState?.position) {
             elapsed = controller.playbackState?.position ?: 0
