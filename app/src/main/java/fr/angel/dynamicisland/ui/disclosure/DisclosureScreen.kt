@@ -55,7 +55,7 @@ fun DisclosureScreen(
 				.alpha(0.4f),
 			color = MaterialTheme.colorScheme.primaryContainer,
 			progress = animateFloatAsState(
-				targetValue = step.toFloat() / maxStep.toFloat(),
+				targetValue = step.toFloat() / maxStep.coerceAtLeast(1).toFloat(),
 				animationSpec = tween(
 					durationMillis = 300,
 					easing = EaseInOutCubic

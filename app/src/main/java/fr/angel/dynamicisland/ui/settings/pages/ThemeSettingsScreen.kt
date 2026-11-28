@@ -1,5 +1,6 @@
 package fr.angel.dynamicisland.ui.settings.pages
 
+import androidx.core.content.edit
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -86,10 +87,7 @@ fun ThemeSettingsScreen() {
 									selected = (text == themeSelectedOption),
 									onClick = {
 										onThemeOptionSelected(text)
-										settingsPreferences
-											.edit()
-											.putString(THEME, text)
-											.apply()
+										settingsPreferences.edit { putString(THEME, text) }
 										Theme.instance.isDarkTheme = when (text) {
 											"System" -> {
 												isSystemInDarkTheme
@@ -157,10 +155,7 @@ fun ThemeSettingsScreen() {
 									onClick = {
 										onStyleOptionSelected(themeStyle)
 										Theme.instance.themeStyle = themeStyle
-										settingsPreferences
-											.edit()
-											.putString(STYLE, themeStyle.name)
-											.apply()
+										settingsPreferences.edit { putString(STYLE, themeStyle.name) }
 									},
 									role = Role.RadioButton
 								)

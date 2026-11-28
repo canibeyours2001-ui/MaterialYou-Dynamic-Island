@@ -1,5 +1,6 @@
 package fr.angel.dynamicisland.ui.settings.pages
 
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import androidx.compose.foundation.Image
@@ -21,8 +22,8 @@ import androidx.compose.ui.unit.dp
 import com.skydoves.landscapist.rememberDrawablePainter
 import fr.angel.dynamicisland.MainActivity
 import fr.angel.dynamicisland.island.IslandSettings
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 
 @Composable
@@ -32,17 +33,27 @@ fun EnabledAppsSettingsScreen() {
 
 	// Get the list of installed apps in the background
 	val apps = remember { mutableStateListOf<PackageInfo>() }
-	val executor: ExecutorService = Executors.newSingleThreadExecutor()
-	LaunchedEffect(Unit) {
-		executor.execute {
-			//Background work here
-			apps.addAll(
-				context.packageManager.getInstalledPackages(0)
-					.filter { it.applicationInfo!!.flags and ApplicationInfo.FLAG_SYSTEM == 0 }.toMutableList()
-					.sortedBy { it.applicationInfo!!.loadLabel(context.packageManager).toString().lowercase() }
-			)
-		}
-	}
+	LaunchedEffect(context) {
+        val installed = withContext(Dispatchers.IO) {
+            // Query only launcher-visible packages declared under <queries> in the
+            // manifest. Android 11+ correctly restricts package visibility.
+            val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            context.packageManager.queryIntentActivities(launcher, 0)
+                .mapNotNull { resolve ->
+                    val name = resolve.activityInfo?.packageName ?: return@mapNotNull null
+                    runCatching { context.packageManager.getPackageInfo(name, 0) }.getOrNull()
+                }
+                .distinctBy { it.packageName }
+                .filter { info ->
+                    val application = info.applicationInfo
+                    application != null && application.flags and ApplicationInfo.FLAG_SYSTEM == 0
+                }
+                .sortedBy { it.applicationInfo?.loadLabel(context.packageManager).toString().lowercase() }
+        }
+        // Mutate Compose state only on the main thread; avoid spawning an executor per recomposition.
+        apps.clear()
+        apps.addAll(installed)
+    }
 
 	LaunchedEffect(Unit) {
 		MainActivity.instance.actions.clear()

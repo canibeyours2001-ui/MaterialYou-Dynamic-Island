@@ -50,7 +50,7 @@ class BatteryPlugin(
 	),
 ) : BasePlugin() {
 
-	var batteryPercent by mutableStateOf(0)
+	var batteryPercent by mutableIntStateOf(0)
 
 	override fun canExpand(): Boolean { return false } // TODO: Add expandable function
 	
@@ -59,7 +59,7 @@ class BatteryPlugin(
 	override fun onPluginCreate() {
 		val context = host as? Context ?: return
 		batteryReceiver = BatteryReceiver()
-		context.registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), Context.RECEIVER_EXPORTED)
+		context.registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
 
 		// Check for plugin internal settings
 		pluginSettings.values.forEach {
@@ -72,8 +72,8 @@ class BatteryPlugin(
 	inner class BatteryReceiver : BroadcastReceiver() {
 		override fun onReceive(context: Context, intent: Intent) {
 			// Get battery status extra
-			val status = intent.extras!!.getInt(BatteryManager.EXTRA_STATUS)
-			val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING
+			val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
+			val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
 
 			// If charging, add plugin else remove it
 			if (isCharging) {
@@ -81,7 +81,7 @@ class BatteryPlugin(
 				val batteryLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
 				val maxBatteryLevel = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
 				// Set battery percent
-				batteryPercent = (batteryLevel * 100 / maxBatteryLevel)
+				BatteryPercent.calculate(batteryLevel, maxBatteryLevel)?.let { batteryPercent = it }
 			} else {
 				host?.requestDismiss(this@BatteryPlugin)
 			}

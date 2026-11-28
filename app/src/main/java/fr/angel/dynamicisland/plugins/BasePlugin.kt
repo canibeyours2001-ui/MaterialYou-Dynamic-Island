@@ -1,5 +1,6 @@
 package fr.angel.dynamicisland.plugins
 
+import androidx.core.content.edit
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.AnimatedContentScope
@@ -24,10 +25,15 @@ abstract class BasePlugin {
 
 	abstract fun canExpand(): Boolean
 
-	fun onCreate(host: PluginHost) {
-		this.host = host
-		onPluginCreate()
-	}
+    fun onCreate(host: PluginHost) {
+        this.host = host
+        onPluginCreate()
+    }
+
+    /** Prevent retaining a destroyed AccessibilityService through global plugin instances. */
+    fun releaseHost() {
+        host = null
+    }
 
 	abstract fun onPluginCreate()
 
@@ -75,11 +81,11 @@ abstract class BasePlugin {
 		return if (allPermissionsGranted || !enabled) {
 			// If all permissions are granted, we can enable the plugin
 			// Save value in settings preferences
-			val editor = context.getSharedPreferences(SETTINGS_KEY, Context.MODE_PRIVATE).edit()
-			editor.putBoolean(id, enabled)
-			editor.apply()
+			context.getSharedPreferences(SETTINGS_KEY, Context.MODE_PRIVATE).edit {
+                putBoolean(id, enabled)
+            }
 
-			context.sendBroadcast(Intent(SETTINGS_CHANGED))
+			context.sendBroadcast(Intent(SETTINGS_CHANGED).setPackage(context.packageName))
 			this.enabled.value = enabled
 
 			true

@@ -2,6 +2,11 @@ package fr.angel.dynamicisland.ui.island
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.Spring
@@ -10,9 +15,11 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -34,6 +41,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlin.math.abs
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import fr.angel.dynamicisland.island.Island
@@ -51,44 +62,67 @@ fun IslandApp(
     islandOverlayService: IslandOverlayService
 ) {
     val context = LocalContext.current
+    val hapticFeedback = LocalHapticFeedback.current
     Theme.instance.Init()
     LaunchedEffect(Unit) {
         IslandSettings.instance.loadSettings(context = context)
     }
 
     val islandView = islandOverlayService.islandState
-    val bindedPlugin = islandOverlayService.pluginManager.activePlugins.firstOrNull()
+    val bindedPlugin = islandOverlayService.pluginManager.currentPlugin
 
+    // One interruptible spring for both the container and its content: no one-second
+    // delayed shrinking, snapping or layout desynchronization on rapid activity changes.
+    val reducedMotion = IslandSettings.instance.reducedMotion
+    val speed = IslandSettings.instance.animationSpeed
     val height by animateDpAsState(
         targetValue = islandView.height,
-        animationSpec = spring(
-            dampingRatio = DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessLow
+        animationSpec = if (reducedMotion) snap() else spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow * speed
         ),
-        label = "height"
-    )
-    val delayedHeightOnShrink by animateDpAsState(
-        targetValue = islandView.height,
-        animationSpec = if (islandView is IslandViewState.Expanded) {
-            spring(
-                dampingRatio = DampingRatioLowBouncy,
-                stiffness = Spring.StiffnessLow
-            )
-        } else tween(durationMillis = 1000, delayMillis = 1000),
-        label = "delayedHeightOnShrink"
+        label = "island-height"
     )
     val width by animateDpAsState(
         targetValue = islandView.width,
-        animationSpec = spring(
-            dampingRatio = DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessLow
+        animationSpec = if (reducedMotion) snap() else spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow * speed
         ),
-        label = "width"
+        label = "island-width"
     )
     val cornerPercentage by animateFloatAsState(
         targetValue = islandView.cornerPercentage,
-        label = "corner"
+        animationSpec = if (reducedMotion) snap() else spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow * speed
+        ),
+        label = "island-shape"
     )
+
+    val swipeModifier = if (islandView is IslandViewState.Opened) {
+        Modifier.pointerInput(bindedPlugin?.id) {
+            var horizontalTravel = 0f
+            detectHorizontalDragGestures(
+                onDragStart = { horizontalTravel = 0f },
+                onDragEnd = {
+                    if (abs(horizontalTravel) > 48f) {
+                        if (IslandSettings.instance.hapticFeedback) {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
+                        islandOverlayService.pluginManager.cycleActivity(
+                            if (horizontalTravel < 0f) 1 else -1
+                        )
+                    }
+                    horizontalTravel = 0f
+                },
+                onHorizontalDrag = { _, delta ->
+                    // The gesture detector consumes drag changes after touch slop.
+                    horizontalTravel += delta
+                }
+            )
+        }
+    } else Modifier
 
     val clickModifier =
         if (islandView is IslandViewState.Opened || islandView is IslandViewState.Expanded) {
@@ -96,7 +130,12 @@ fun IslandApp(
                 .combinedClickable(
                     onClick = { bindedPlugin?.onClick() },
                     onLongClick = {
-                        if (bindedPlugin?.canExpand() == true) {
+                        if (IslandSettings.instance.hapticFeedback) {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                        if (islandView is IslandViewState.Expanded) {
+                            islandOverlayService.shrink()
+                        } else if (bindedPlugin?.canExpand() == true) {
                             islandOverlayService.expand()
                         }
                     }
@@ -106,8 +145,8 @@ fun IslandApp(
         }
 
     AnimatedVisibility(
-        visible = (Island.isScreenOn
-                || IslandSettings.instance.showOnLockScreen)
+        visible = (bindedPlugin != null || IslandSettings.instance.showIdleIsland)
+                && (Island.isScreenOn || IslandSettings.instance.showOnLockScreen)
                 && (!Island.isInLandscape || IslandSettings.instance.showInLandscape),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -130,8 +169,13 @@ fun IslandApp(
                         modifier = Modifier
                             .padding(top = islandView.yPosition)
                             .width(width)
-                            .height(delayedHeightOnShrink)
-                            .offset(x = islandView.xPosition),
+                            .height(height)
+                            .offset(
+                                x = islandView.xPosition +
+                                    (if (IslandSettings.instance.autoAlignCutout &&
+                                        IslandSettings.instance.gravity == IslandGravity.Center
+                                    ) IslandSettings.instance.cutoutOffsetDp.dp else 0.dp)
+                            ),
                         contentAlignment = when (IslandSettings.instance.gravity) {
                             IslandGravity.Center -> Alignment.TopCenter
                             IslandGravity.Left -> Alignment.TopStart
@@ -156,7 +200,8 @@ fun IslandApp(
                                 .width(width)
                                 .height(height)
                                 .defaultMinSize(minHeight = height)
-                                .then(clickModifier),
+                                .then(clickModifier)
+                                .then(swipeModifier),
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surface,
                             )
@@ -168,10 +213,22 @@ fun IslandApp(
                                     .fillMaxSize(),
                                 contentAlignment = Alignment.Center,
                             ) {
+                                // Include the selected activity in the transition key so
+                                // switching from media to notifications crossfades instead of snapping.
                                 AnimatedContent(
-                                    targetState = islandView,
+                                    targetState = islandView to bindedPlugin?.id,
+                                    transitionSpec = {
+                                        if (reducedMotion) {
+                                            EnterTransition.None togetherWith ExitTransition.None
+                                        } else {
+                                            fadeIn(animationSpec = tween(160)) togetherWith
+                                                fadeOut(animationSpec = tween(130))
+                                        }
+                                    },
                                     label = "IslandTransition"
-                                ) { islandView ->
+                                ) { (islandView, pluginId) ->
+                                    val transitioningPlugin =
+                                        islandOverlayService.pluginManager.activePlugins.firstOrNull { it.id == pluginId }
                                     // Expanded State
                                     if (islandView is IslandViewState.Expanded) {
                                         Box(
@@ -185,7 +242,7 @@ fun IslandApp(
                                                 )
                                                 .clip(RoundedCornerShape(cornerPercentage))
                                         ) {
-                                            bindedPlugin?.Composable(
+                                            transitioningPlugin?.Composable(
                                                 sharedTransitionScope = this@SharedTransitionLayout,
                                                 animatedContentScope = this@AnimatedContent
                                             )
@@ -210,7 +267,7 @@ fun IslandApp(
                                                 modifier = boxModifier,
                                                 contentAlignment = Alignment.CenterEnd
                                             ) {
-                                                bindedPlugin?.LeftOpenedComposable(
+                                                transitioningPlugin?.LeftOpenedComposable(
                                                     sharedTransitionScope = this@SharedTransitionLayout,
                                                     animatedContentScope = this@AnimatedContent
                                                 )
@@ -220,7 +277,7 @@ fun IslandApp(
                                                 modifier = boxModifier,
                                                 contentAlignment = Alignment.CenterStart
                                             ) {
-                                                bindedPlugin?.RightOpenedComposable(
+                                                transitioningPlugin?.RightOpenedComposable(
                                                     sharedTransitionScope = this@SharedTransitionLayout,
                                                     animatedContentScope = this@AnimatedContent
                                                 )
@@ -230,63 +287,7 @@ fun IslandApp(
                                 }
                             }
 
-                            /* Box(
-                                 modifier = Modifier.fillMaxSize()
-                             ) {
-                                 AnimatedContent(
-                                     targetState = islandView,
-                                     label = "IslandTransition",
-                                     transitionSpec = {
-                                         fadeIn().togetherWith(fadeOut())
-                                     }
-                                 ) { islandView ->
 
-                                     // Expanded State
-                                     if (islandView is IslandViewState.Expanded) {
-                                         Box(
-                                             modifier = Modifier
-                                                 .fillMaxSize()
-                                                 .clip(RoundedCornerShape(cornerPercentage))
-                                                 .background(Color.Red)
-                                         ) {
-                                             bindedPlugin?.Composable(
-                                                 sharedTransitionScope = this@SharedTransitionLayout,
-                                                 animatedContentScope = this@AnimatedContent
-                                             )
-                                         }
-                                     } else {
-                                         // Opened State
-                                         Row(
-                                             modifier = Modifier
-                                                 .fillMaxSize()
-                                                 .padding(4.dp)
-                                                 .clip(RoundedCornerShape(cornerPercentage)),
-                                             verticalAlignment = Alignment.CenterVertically,
-                                             horizontalArrangement = Arrangement.SpaceBetween
-                                         ) {
-                                             Box(
-                                                 modifier = boxModifier,
-                                                 contentAlignment = Alignment.CenterEnd
-                                             ) {
-                                                 bindedPlugin?.LeftOpenedComposable(
-                                                     sharedTransitionScope = this@SharedTransitionLayout,
-                                                     animatedContentScope = this@AnimatedContent
-                                                 )
-                                             }
-
-                                             Box(
-                                                 modifier = boxModifier,
-                                                 contentAlignment = Alignment.CenterStart
-                                             ) {
-                                                 bindedPlugin?.RightOpenedComposable(
-                                                     sharedTransitionScope = this@SharedTransitionLayout,
-                                                     animatedContentScope = this@AnimatedContent
-                                                 )
-                                             }
-                                         }
-                                     }
-                                 }
-                             }*/
                         }
                     }
                 }

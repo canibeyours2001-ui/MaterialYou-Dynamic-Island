@@ -3,15 +3,14 @@ package fr.angel.dynamicisland.plugins.notification
 import android.app.RemoteInput
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Context.INPUT_METHOD_SERVICE
 import android.content.Intent
 import android.content.IntentFilter
+import androidx.core.content.ContextCompat
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.util.Log
-import android.view.inputmethod.InputMethodManager
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -19,13 +18,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Button
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,466 +60,453 @@ import fr.angel.dynamicisland.plugins.PluginSettingsItem
 
 
 class NotificationPlugin(
-	override val id: String = "NotificationPlugin",
-	override val name: String = "Notification",
-	override val description: String = "Show the current notification on the screen and allow you to interact with it (reply, open, etc.)",
-	override var enabled: MutableState<Boolean> = mutableStateOf(false),
-	override val permissions: ArrayList<String> = arrayListOf(
-		Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS
-	),
-	override var pluginSettings: MutableMap<String, PluginSettingsItem> = mutableMapOf(),
+    override val id: String = "NotificationPlugin",
+    override val name: String = "Notification",
+    override val description: String = "Show the current notification on the screen and allow you to interact with it (reply, open, etc.)",
+    override var enabled: MutableState<Boolean> = mutableStateOf(false),
+    override val permissions: ArrayList<String> = arrayListOf(
+        Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS
+    ),
+    override var pluginSettings: MutableMap<String, PluginSettingsItem> = mutableMapOf(),
 ) : BasePlugin() {
 
-	private val notificationService = NotificationService.getInstance()
+    private val notificationService get() = NotificationService.getInstance()
 
-	private var notificationMeta : MutableState<NotificationMeta?> = mutableStateOf(null)
+    private var notificationMeta : MutableState<NotificationMeta?> = mutableStateOf(null)
 
-	private val handler = Handler(Looper.getMainLooper())
+    private val handler = Handler(Looper.getMainLooper())
 
-	private val mBroadcastReceiver: BroadcastReceiver = object : BroadcastReceiver() {
-		override fun onReceive(context: Context, intent: Intent) {
+    private val mBroadcastReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
 
-			val extras : Bundle = intent.extras ?: return
+            val extras : Bundle = intent.extras ?: return
+            val notificationService = NotificationService.getInstance() ?: return
 
-			if (intent.action == NOTIFICATION_POSTED) {
+            if (intent.action == NOTIFICATION_POSTED) {
 
-				// Add notification to list
-				val notification = notificationService?.notifications?.lastOrNull { it.id == extras.getInt("id") } ?: return
-				// notifications.add(notification)
+                // Add notification to list
+                val notification = notificationService.notifications.lastOrNull { it.key == extras.getString("key") } ?: return
+                // notifications.add(notification)
 
-				// Update notification meta
-				var total = ""
-				notificationService.notifications.filter { it.id == notification.id }.forEach { total += it.notification.extras.getString("android.text") }
+                // Update notification meta
+                notificationMeta.value = NotificationMeta(
+                    title = extras.getCharSequence("title")?.toString(),
+                    body = extras.getString("body") ?: notification.notification.extras.getCharSequence("android.text")?.toString().orEmpty(),
+                    id = extras.getInt("id"),
+                    iconDrawable = notification.notification.smallIcon.loadDrawable(context) ?: return,
+                    packageName = extras.getString("package_name") ?: "fr.angel.dynamicisland",
+                    actions = (notification.notification.actions ?: arrayOf()).toList(),
+                    all = extras,
+                    statusBarNotification = notification
+                )
 
-				Log.d("NotificationPlugin", "Notification posted: ${notification.notification.extras.getString("android.title")} - ${notification.notification.extras.getString("android.text")}")
+                // Setup timeout
+                restartTimeout()
 
-				notificationMeta.value = NotificationMeta(
-					title = extras.getString("title"),
-					body = notification.notification.extras.getString("android.text") ?: "",
-					id = extras.getInt("id"),
-					iconDrawable = notification.notification.smallIcon.loadDrawable(context) ?: return,
-					packageName = extras.getString("package_name") ?: "fr.angel.dynamicisland",
-					actions = (notification.notification.actions ?: arrayOf()).toList(),
-					all = extras,
-					statusBarNotification = notification
-				)
+                // Add plugin
+                host?.requestDisplay(this@NotificationPlugin)
+            }
+            if (intent.action == NOTIFICATION_REMOVED) {
+                if (extras.getString("key") == notificationMeta.value?.statusBarNotification?.key) {
+                    val next = notificationService.notifications.lastOrNull()
+                    if (next == null) {
+                        dismissIslandCard()
+                    } else {
+                        notificationMeta.value = NotificationMeta(
+                            title = next.notification.extras.getCharSequence("android.title")?.toString(),
+                            body = next.notification.extras.getCharSequence("android.text")?.toString() ?: "",
+                            id = next.id,
+                            iconDrawable = next.notification.smallIcon.loadDrawable(context) ?: return,
+                            packageName = next.packageName,
+                            actions = (next.notification.actions ?: emptyArray()).toList(),
+                            all = extras,
+                            statusBarNotification = next
+                        )
+                        restartTimeout()
+                    }
+                }
+            }
+        }
+    }
 
-				// Setup timeout
-				restartTimeout()
+    private fun dismissIslandCard() {
+        handler.removeCallbacksAndMessages(null)
+        notificationMeta.value = null
+        host?.requestDismiss(this)
+    }
 
-				// Add plugin
-				Log.d("NotificationPlugin", "BroadcastReceiver: Add plugin")
-				host?.requestDisplay(this@NotificationPlugin)
-			}
-			if (intent.action == NOTIFICATION_REMOVED) {
-				// val id = extras.getInt("id")
-				// removeNotificationAndUpdateState(id, true) // Notification already removed
-				Log.d("NotificationPlugin", "id: $id")
-				if (notificationService?.notifications?.isEmpty() == true) {
-					host?.requestDismiss(this@NotificationPlugin)
-				}
-			}
-		}
-	}
+    
+    override fun canExpand(): Boolean { return true }
 
-	private fun removeNotificationAndUpdateState(id: Int) {
-		val context = host as? Context ?: return
-		// Remove notification from list
-		notificationService?.notifications?.removeAll { it.id == id }
+    override fun onPluginCreate() {
+        val context = host as? Context ?: return
+        val filter = IntentFilter()
+        filter.addAction(NOTIFICATION_POSTED)
+        filter.addAction(NOTIFICATION_REMOVED)
+        ContextCompat.registerReceiver(context, mBroadcastReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+    }
 
-		// Reset timeout
-		handler.removeCallbacksAndMessages(null)
+    @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
+    @Composable
+    override fun Composable(
+        sharedTransitionScope: SharedTransitionScope,
+        animatedContentScope: AnimatedContentScope
+    ) {
+        val meta = notificationMeta.value ?: return
+        val context = LocalContext.current
+        val keyboardController = LocalSoftwareKeyboardController.current
 
-		// Update notification meta if list is not empty else set to null
-		notificationMeta.value = notificationService?.notifications?.firstOrNull()?.let { notification ->
-			NotificationMeta(
-				title = notification.notification.extras.getString("android.title"),
-				body = notification.notification.extras.getString("android.text") ?: "",
-				id = notification.id,
-				iconDrawable = notification.notification.smallIcon.loadDrawable(context) ?: return,
-				packageName = notification.packageName,
-				actions = notification.notification.actions.toList(),
-				all = notification.notification.extras,
-				statusBarNotification = notification
-			)
-		}
+        // Preserve the auto-hide timer scheduled by the notification receiver.
+        // Cancelling it at first composition kept the card visible indefinitely.
 
-		// If no more notifications, remove plugin
-		if (notificationService?.notifications?.isEmpty() == true) {
-			// Remove plugin
-			Log.d("NotificationPlugin", "BroadcastReceiver: Remove plugin")
-			host?.requestDismiss(this@NotificationPlugin)
-		}/* else {
-			// Setup timeout
-			handler.removeCallbacksAndMessages(null)
-			startTimeout()
-		}*/
-	}
+        val dismissState = rememberSwipeToDismissBoxState(
+            confirmValueChange = {
+                if (it == SwipeToDismissBoxValue.StartToEnd || it == SwipeToDismissBoxValue.EndToStart) {
+                    context.sendBroadcast(Intent(ACTION_CLOSE).apply {
+                        setPackage(context.packageName)
+                        putExtra("key", meta.statusBarNotification?.key)
+                    })
+                }
+                true
+            }
+        )
+        SwipeToDismissBox(
+            state = dismissState,
+            backgroundContent = {
+                when (dismissState.dismissDirection) {
+                    SwipeToDismissBoxValue.StartToEnd -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.primaryContainer)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .align(Alignment.CenterStart)
+                                    .padding(start = 16.dp)
+                            )
+                        }
+                    }
+                    SwipeToDismissBoxValue.EndToStart -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.primaryContainer)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .padding(end = 16.dp)
+                            )
+                        }
+                    }
+                    else -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.background)
+                        )
+                    }
+                }
+            },
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(24.dp)) // Fixed value for now
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(16.dp),
+            ) {
+                // Icon
+                val appName = meta.getAppName(context)
+                with(sharedTransitionScope) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .sharedElement(
+                                rememberSharedContentState(key = "notification_icon_${meta.id}"),
+                                animatedVisibilityScope = animatedContentScope
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = rememberDrawablePainter(drawable = meta.iconDrawable),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                // Title + app name
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = appName,
+                        style = MaterialTheme.typography.titleMedium,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                    )
+                    if (meta.title != null) {
+                        Text(
+                            text = meta.title!!,
+                            style = MaterialTheme.typography.titleSmall,
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = 1
+                        )
+                    }
+                }
+                // Close button
+                IconButton(
+                    onClick = {
+                        host?.requestShrink()
+                        restartTimeout()
+                    }
+                ) {
+                    with(sharedTransitionScope) {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .sharedElement(
+                                    rememberSharedContentState(key = "notification_category_${meta.id}"),
+                                    animatedVisibilityScope = animatedContentScope
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ExpandLess,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            // Notification body
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Text(
+                    text = meta.body,
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Justify,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            // Notification actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                var isReplying by remember { mutableStateOf(false) }
+                var replyText by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
 
-	override fun canExpand(): Boolean { return true }
+                meta.actions.forEach { action ->
+                    val remoteInput = action.remoteInputs?.firstOrNull()
 
-	override fun onPluginCreate() {
-		val context = host as? Context ?: return
-		val filter = IntentFilter()
-		filter.addAction(NOTIFICATION_POSTED)
-		filter.addAction(NOTIFICATION_REMOVED)
-		context.registerReceiver(mBroadcastReceiver, filter, Context.RECEIVER_EXPORTED)
-	}
-
-	@OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
-	@Composable
-	override fun Composable(
-		sharedTransitionScope: SharedTransitionScope,
-		animatedContentScope: AnimatedContentScope
-	) {
-		val meta = notificationMeta.value ?: return
-		val context = LocalContext.current
-
-		// Cancel notification timeout
-		handler.removeCallbacksAndMessages(null)
-
-		val dismissState = rememberDismissState(
-			confirmStateChange = {
-				if (it == DismissValue.DismissedToStart || it == DismissValue.DismissedToEnd) {
-					context.sendBroadcast(Intent(ACTION_CLOSE))
-				}
-				true
-			}
-		)
-		SwipeToDismiss(
-			state = dismissState,
-			dismissThresholds = { FractionalThreshold(0.5f) },
-			background = {
-				when (dismissState.dismissDirection) {
-					DismissDirection.StartToEnd -> {
-						Box(
-							modifier = Modifier
-								.fillMaxSize()
-								.background(MaterialTheme.colorScheme.primaryContainer)
-						) {
-							Icon(
-								imageVector = Icons.Default.Delete,
-								contentDescription = null,
-								modifier = Modifier
-									.align(Alignment.CenterStart)
-									.padding(start = 16.dp)
-							)
-						}
-					}
-					DismissDirection.EndToStart -> {
-						Box(
-							modifier = Modifier
-								.fillMaxSize()
-								.background(MaterialTheme.colorScheme.primaryContainer)
-						) {
-							Icon(
-								imageVector = Icons.Default.Delete,
-								contentDescription = null,
-								modifier = Modifier
-									.align(Alignment.CenterEnd)
-									.padding(end = 16.dp)
-							)
-						}
-					}
-					else -> {
-						Box(
-							modifier = Modifier
-								.fillMaxSize()
-								.background(MaterialTheme.colorScheme.background)
-						)
-					}
-				}
-			},
-			directions = setOf(DismissDirection.StartToEnd, DismissDirection.EndToStart),
-		) {
-			Column(
-				modifier = Modifier
-					.fillMaxSize()
-					.clip(RoundedCornerShape(24.dp)) // Fixed value for now
-					.background(MaterialTheme.colorScheme.background)
-					.padding(16.dp),
-			) {
-				// Icon
-				val appName = meta.getAppName(context)
-				with(sharedTransitionScope) {
-					Box(
-						modifier = Modifier
-							.size(48.dp)
-							.sharedElement(
-								rememberSharedContentState(key = "notification_icon_${meta.id}"),
-								animatedVisibilityScope = animatedContentScope
-							),
-						contentAlignment = Alignment.Center
-					) {
-						Icon(
-							painter = rememberDrawablePainter(drawable = meta.iconDrawable),
-							contentDescription = null,
-							tint = MaterialTheme.colorScheme.primary,
-							modifier = Modifier.fillMaxSize()
-						)
-					}
-				}
-				Spacer(modifier = Modifier.width(16.dp))
-				// Title + app name
-				Column(modifier = Modifier.weight(1f)) {
-					Text(
-						text = appName,
-						style = MaterialTheme.typography.titleMedium,
-						overflow = TextOverflow.Ellipsis,
-						maxLines = 1,
-					)
-					if (meta.title != null) {
-						Text(
-							text = meta.title!!,
-							style = MaterialTheme.typography.titleSmall,
-							overflow = TextOverflow.Ellipsis,
-							maxLines = 1
-						)
-					}
-				}
-				// Close button
-				IconButton(
-					onClick = {
-						host?.requestShrink()
-						restartTimeout()
-					}
-				) {
-					with(sharedTransitionScope) {
-						Box(
-							modifier = Modifier
-								.size(24.dp)
-								.sharedElement(
-									rememberSharedContentState(key = "notification_category_${meta.id}"),
-									animatedVisibilityScope = animatedContentScope
-								),
-							contentAlignment = Alignment.Center
-						) {
-							Icon(
-								imageVector = Icons.Default.ExpandLess,
-								contentDescription = null,
-								modifier = Modifier.fillMaxSize()
-							)
-						}
-					}
-				}
-			}
-			Spacer(modifier = Modifier.height(4.dp))
-			// Notification body
-			Box(
-				modifier = Modifier.weight(1f),
-				contentAlignment = Alignment.CenterStart
-			) {
-				Text(
-					text = meta.body,
-					style = MaterialTheme.typography.bodySmall,
-					textAlign = TextAlign.Justify,
-					overflow = TextOverflow.Ellipsis,
-				)
-			}
-			// Notification actions
-			Row(
-				modifier = Modifier.fillMaxWidth(),
-				horizontalArrangement = Arrangement.spacedBy(8.dp)
-			) {
-				var isReplying by remember { mutableStateOf(false) }
-				var replyText by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
-
-				meta.actions.forEach { action ->
-					val remoteInput = action.remoteInputs?.firstOrNull()
-
-					if (!isReplying) {
-						// Show buttons
-						if (remoteInput == null) {
-							// Not a reply button
-							Button(
-								modifier = Modifier.weight(1f),
-								onClick = {
-									// Classic action
-									val intent = action.actionIntent
-									intent.send()
-									// Remove notification
-									context.sendBroadcast(Intent(ACTION_CLOSE).apply {
-										putExtra("id", meta.id)
-									})
-								},
-							) {
-								Text(
-									text = action.title.toString(),
-									style = MaterialTheme.typography.labelSmall,
-								)
-							}
-						} else {
-							// Reply button
-							Button(
-								modifier = Modifier.weight(1f),
-								onClick = {
-									// Reply action
-									isReplying = true
-								},
-							) {
-								Text(
-									text = action.title.toString(),
-									style = MaterialTheme.typography.labelSmall,
-								)
-							}
-						}
-					} else if (remoteInput != null) {
-						// Create reply text field
-						Row(
-							modifier = Modifier
-								.weight(1f),
-							verticalAlignment = Alignment.CenterVertically
-						) {
+                    if (!isReplying) {
+                        // Show buttons
+                        if (remoteInput == null) {
+                            // Not a reply button
+                            Button(
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    // Classic action
+                                    val intent = action.actionIntent
+                                    try {
+                                        intent.send()
+                                    } catch (_: android.app.PendingIntent.CanceledException) {
+                                        return@Button
+                                    }
+                                    // Remove notification
+                                    context.sendBroadcast(Intent(ACTION_CLOSE).apply {
+                                        putExtra("key", meta.statusBarNotification?.key)
+                                        setPackage(context.packageName)
+                                    })
+                                },
+                            ) {
+                                Text(
+                                    text = action.title.toString(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                        } else {
+                            // Reply button
+                            Button(
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    // Reply action
+                                    isReplying = true
+                                },
+                            ) {
+                                Text(
+                                    text = action.title.toString(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                        }
+                    } else if (remoteInput != null) {
+                        // Create reply text field
+                        Row(
+                            modifier = Modifier
+                                .weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
 
 
-							TextField(
-								value = replyText,
-								onValueChange = { replyText = it },
-								modifier = Modifier
-									.weight(1f)
-									.onFocusChanged {
-										Log.d("Focus", it.isFocused.toString())
-										val imm =
-											context.getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-										if (it.isFocused) {
-											imm.toggleSoftInput(
-												InputMethodManager.SHOW_FORCED,
-												0
-											)
-										}
-									},
-								shape = CircleShape,
-								singleLine = true,
-								colors = TextFieldDefaults.colors(
-									focusedIndicatorColor = Color.Transparent,
-									unfocusedIndicatorColor = Color.Transparent,
-									disabledIndicatorColor = Color.Transparent,
-									errorIndicatorColor = Color.Transparent,
-								),
-							)
-							IconButton(onClick = {
-								// Send reply action
-								val intent = Intent().addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
-								val bundle = Bundle().apply {
-									putCharSequence(remoteInput.resultKey, replyText.text)
-								}
-								RemoteInput.addResultsToIntent(action.remoteInputs, intent, bundle)
-								action.actionIntent.send(context, 0, intent)
-								// Remove notification
-								context.sendBroadcast(Intent(ACTION_CLOSE).apply {
-									putExtra("id", meta.id)
-								})
-							}) {
-								Icon(
-									imageVector = Icons.Default.Send,
-									contentDescription = null
-								)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
+                            TextField(
+                                value = replyText,
+                                onValueChange = { replyText = it },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .onFocusChanged {
+                                        if (it.isFocused) keyboardController?.show()
+                                    },
+                                shape = CircleShape,
+                                singleLine = true,
+                                colors = TextFieldDefaults.colors(
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                    disabledIndicatorColor = Color.Transparent,
+                                    errorIndicatorColor = Color.Transparent,
+                                ),
+                            )
+                            IconButton(onClick = {
+                                // Send reply action
+                                val intent = Intent().addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+                                val bundle = Bundle().apply {
+                                    putCharSequence(remoteInput.resultKey, replyText.text)
+                                }
+                                RemoteInput.addResultsToIntent(action.remoteInputs, intent, bundle)
+                                try {
+                                    action.actionIntent.send(context, 0, intent)
+                                } catch (_: android.app.PendingIntent.CanceledException) {
+                                    return@IconButton
+                                }
+                                // Remove notification
+                                context.sendBroadcast(Intent(ACTION_CLOSE).apply {
+                                    putExtra("key", meta.statusBarNotification?.key)
+                                        setPackage(context.packageName)
+                                })
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Send,
+                                    contentDescription = null
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-	override fun onClick() {
-		val meta = notificationMeta.value ?: return
-		val context = host as? Context ?: return
-		val intent = Intent(ACTION_OPEN_CLOSE)
-		intent.putExtra("id", meta.id)
-		context.sendBroadcast(intent)
-	}
+    override fun onClick() {
+        val meta = notificationMeta.value ?: return
+        val context = host as? Context ?: return
+        val intent = Intent(ACTION_OPEN_CLOSE).setPackage(context.packageName)
+        intent.putExtra("key", meta.statusBarNotification?.key)
+        context.sendBroadcast(intent)
+    }
 
-	override fun onDestroy() {
-		val context = host as? Context ?: return
-		try {
-			context.unregisterReceiver(mBroadcastReceiver)
-		} catch (_: Exception) {} // Ignore exception if receiver is not registered
-	}
+    override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
+        val context = host as? Context ?: return
+        try {
+            context.unregisterReceiver(mBroadcastReceiver)
+        } catch (_: Exception) {} // Ignore exception if receiver is not registered
+    }
 
-	@Composable
-	override fun PermissionsRequired() {
+    @Composable
+    override fun PermissionsRequired() {
 
-	}
+    }
 
-	@OptIn(ExperimentalSharedTransitionApi::class)
-	@Composable
-	override fun LeftOpenedComposable(
-		sharedTransitionScope: SharedTransitionScope,
-		animatedContentScope: AnimatedContentScope
-	) {
-		val meta = notificationMeta.value ?: return
+    @OptIn(ExperimentalSharedTransitionApi::class)
+    @Composable
+    override fun LeftOpenedComposable(
+        sharedTransitionScope: SharedTransitionScope,
+        animatedContentScope: AnimatedContentScope
+    ) {
+        val meta = notificationMeta.value ?: return
 
-		with(sharedTransitionScope) {
-			Box(
-				modifier = Modifier
-					.size(34.dp)
-					.clip(CircleShape)
-					.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-					.sharedElement(
-						rememberSharedContentState(key = "notification_icon_${meta.id}"),
-						animatedVisibilityScope = animatedContentScope
-					),
-				contentAlignment = Alignment.Center
-			) {
-				Icon(
-					painter = rememberDrawablePainter(drawable = meta.iconDrawable),
-					tint = MaterialTheme.colorScheme.primary,
-					contentDescription = null,
-					modifier = Modifier.padding(2.dp).fillMaxSize()
-				)
-			}
-		}
-	}
+        with(sharedTransitionScope) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                    .sharedElement(
+                        rememberSharedContentState(key = "notification_icon_${meta.id}"),
+                        animatedVisibilityScope = animatedContentScope
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = rememberDrawablePainter(drawable = meta.iconDrawable),
+                    tint = MaterialTheme.colorScheme.primary,
+                    contentDescription = null,
+                    modifier = Modifier.padding(2.dp).fillMaxSize()
+                )
+            }
+        }
+    }
 
-	@OptIn(ExperimentalSharedTransitionApi::class)
-	@Composable
-	override fun RightOpenedComposable(
-		sharedTransitionScope: SharedTransitionScope,
-		animatedContentScope: AnimatedContentScope
-	) {
-		val meta = notificationMeta.value ?: return
-		when (meta.statusBarNotification?.notification?.category) {
-			"msg" -> {
-				with(sharedTransitionScope) {
-					Box(
-						modifier = Modifier
-							.size(34.dp)
-							.clip(CircleShape)
-							.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-							.sharedElement(
-								rememberSharedContentState(key = "notification_category_${meta.id}"),
-								animatedVisibilityScope = animatedContentScope
-							),
-						contentAlignment = Alignment.Center
-					) {
-						Icon(
-							imageVector = Icons.Default.Chat,
-							tint = MaterialTheme.colorScheme.primary,
-							contentDescription = null,
-							modifier = Modifier.padding(4.dp).fillMaxSize()
-						)
-					}
-				}
-			}
-		}
-	}
+    @OptIn(ExperimentalSharedTransitionApi::class)
+    @Composable
+    override fun RightOpenedComposable(
+        sharedTransitionScope: SharedTransitionScope,
+        animatedContentScope: AnimatedContentScope
+    ) {
+        val meta = notificationMeta.value ?: return
+        when (meta.statusBarNotification?.notification?.category) {
+            "msg" -> {
+                with(sharedTransitionScope) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                            .sharedElement(
+                                rememberSharedContentState(key = "notification_category_${meta.id}"),
+                                animatedVisibilityScope = animatedContentScope
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Chat,
+                            tint = MaterialTheme.colorScheme.primary,
+                            contentDescription = null,
+                            modifier = Modifier.padding(4.dp).fillMaxSize()
+                        )
+                    }
+                }
+            }
+        }
+    }
 
-	override fun onLeftSwipe() {
-		Log.d("Notification", "Left swipe")
-		val context = host as? Context ?: return
-		context.sendBroadcast(Intent(ACTION_CLOSE))
-	}
+    override fun onLeftSwipe() {
+        val context = host as? Context ?: return
+        val key = notificationMeta.value?.statusBarNotification?.key ?: return
+        context.sendBroadcast(Intent(ACTION_CLOSE).apply {
+            setPackage(context.packageName)
+            putExtra("key", key)
+        })
+    }
 
-	override fun onRightSwipe() {}
+    override fun onRightSwipe() {}
 
-	private fun restartTimeout() {
-		handler.removeCallbacksAndMessages(null)
-		handler.postDelayed({
-			if (notificationMeta.value != null) {
-				removeNotificationAndUpdateState(notificationMeta.value!!.id)
-				Log.d("NotificationPlugin", "Timeout: Remove notification")
-			}
-		}, IslandSettings.instance.autoHideOpenedAfter.toLong())
-	}
+    private fun restartTimeout() {
+        handler.removeCallbacksAndMessages(null)
+        handler.postDelayed({
+            if (notificationMeta.value != null) {
+                dismissIslandCard()
+            }
+        }, IslandSettings.instance.autoHideOpenedAfter.toLong())
+    }
 }

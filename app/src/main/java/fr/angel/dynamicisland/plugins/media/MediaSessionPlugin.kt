@@ -8,7 +8,6 @@ import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.MediaSessionManager.OnActiveSessionsChangedListener
 import android.provider.Settings
-import android.util.Log
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -47,6 +46,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,27 +82,36 @@ class MediaSessionPlugin(
     private var callbackMap = mutableStateMapOf<String, MediaCallback>()
 
     // private var mediaStruct by mutableStateOf<MediaStruct?>(null)
-    private var songPosition by mutableStateOf(0f)
-    private var duration: Long by mutableStateOf(0)
-    private var elapsed: Long by mutableStateOf(0)
+    private var songPosition by mutableFloatStateOf(0f)
+    private var duration: Long by mutableLongStateOf(0)
+    private var elapsed: Long by mutableLongStateOf(0)
 
     private val listenerForActiveSessions =
         OnActiveSessionsChangedListener { controllers ->
-            if (controllers != null) {
+            if (controllers == null) {
+                callbackMap.values.toList().forEach { it.dispose() }
+                callbackMap.clear()
+                host?.requestDismiss(this)
+            } else {
+                val currentTokens = controllers.map { it.sessionToken.toString() }.toSet()
+                callbackMap.keys.toList().filter { it !in currentTokens }.forEach { stale ->
+                    callbackMap.remove(stale)?.dispose()
+                }
+                if (callbackMap.isEmpty()) host?.requestDismiss(this)
                 for (controller in controllers) {
                     // Cancel if already exists
-                    if (callbackMap[controller.packageName] != null) return@OnActiveSessionsChangedListener
+                    if (callbackMap[controller.sessionToken.toString()] != null) continue
 
                     // Create callback for this controller and add it to the map of callbacks
                     val callback = MediaCallback(controller, this)
-                    callbackMap[controller.packageName] = callback
+                    callbackMap[controller.sessionToken.toString()] = callback
                     controller.registerCallback(callback)
                 }
             }
         }
 
     fun removeMedia(mediaController: MediaController) {
-        callbackMap.remove(mediaController.packageName)
+        callbackMap.remove(mediaController.sessionToken.toString())?.dispose()
         if (callbackMap.isEmpty()) {
             host?.requestDismiss(this)
         }
@@ -123,22 +133,27 @@ class MediaSessionPlugin(
             context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
 
         // Register the listener for active sessions
-        mediaSessionManager.addOnActiveSessionsChangedListener(
-            listenerForActiveSessions,
-            ComponentName(context, NotificationService::class.java)
-        )
-        mediaSessionManager.getActiveSessions(
+        try {
+            mediaSessionManager.addOnActiveSessionsChangedListener(
+                listenerForActiveSessions,
+                ComponentName(context, NotificationService::class.java)
+            )
+            mediaSessionManager.getActiveSessions(
             ComponentName(
                 context,
                 NotificationService::class.java
             )
         ).forEach { controller ->
             // Cancel if already exists
-            if (callbackMap[controller.packageName] != null) return@forEach
+            if (callbackMap[controller.sessionToken.toString()] != null) return@forEach
 
             val callback = MediaCallback(controller, this)
-            callbackMap[controller.packageName] = callback
+            callbackMap[controller.sessionToken.toString()] = callback
             controller.registerCallback(callback)
+            }
+        } catch (_: SecurityException) {
+            callbackMap.values.toList().forEach { it.dispose() }
+            callbackMap.clear()
         }
     }
 
@@ -155,13 +170,13 @@ class MediaSessionPlugin(
         val controls = controller.transportControls
 
         var isDragging by remember { mutableStateOf(false) }
-        var draggedPosition by remember { mutableStateOf(0f) }
+        var draggedPosition by remember { mutableFloatStateOf(0f) }
 
-        LaunchedEffect(controller.playbackState?.position) {
+        LaunchedEffect(controller.playbackState?.position, controller.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION)) {
             elapsed = controller.playbackState?.position ?: 0
             duration = controller.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0
 
-            songPosition = (elapsed / duration.toFloat()) * 100
+            songPosition = MediaProgress.percent(elapsed, duration)
         }
 
         with(sharedTransitionScope) {
@@ -319,9 +334,12 @@ class MediaSessionPlugin(
 
         val controller = current.mediaController
 
-        Log.d("MediaSessionPlugin", "onClick: ${controller.sessionActivity}")
         if (controller.sessionActivity != null) {
-            controller.sessionActivity!!.send(0)
+            try {
+                controller.sessionActivity!!.send(0)
+            } catch (_: android.app.PendingIntent.CanceledException) {
+                // The playback application no longer accepts the action.
+            }
         }
     }
 
@@ -329,6 +347,8 @@ class MediaSessionPlugin(
         if (!::mediaSessionManager.isInitialized) return
         // Unregister the listener for active sessions
         mediaSessionManager.removeOnActiveSessionsChangedListener(listenerForActiveSessions)
+        callbackMap.values.toList().forEach { it.dispose() }
+        callbackMap.clear()
     }
 
     @Composable
@@ -396,20 +416,23 @@ class MediaSessionPlugin(
         val mediaCallback = callbackMap.values.firstOrNull()
 
         if (mediaCallback == null) {
-            Log.d("MediaSessionPlugin", "RightOpenedComposable: No media callback")
             return
         }
 
-        LaunchedEffect(mediaCallback.mediaStruct.playbackState.value.position) {
+        LaunchedEffect(mediaCallback.mediaStruct.playbackState.value.position, mediaCallback.mediaStruct.duration.value) {
             elapsed = mediaCallback.mediaStruct.playbackState.value.position
             duration = mediaCallback.mediaStruct.duration.value
 
-            songPosition = (elapsed / duration.toFloat()) * 100
+            songPosition = MediaProgress.percent(elapsed, duration)
         }
 
-        val icon = context.packageManager.getApplicationIcon(
-            mediaCallback.mediaController.packageName ?: "fr.angel.dynamicisland"
-        )
+        val icon = remember(mediaCallback.mediaController.packageName) {
+            runCatching {
+                context.packageManager.getApplicationIcon(
+                    mediaCallback.mediaController.packageName ?: "fr.angel.dynamicisland"
+                )
+            }.getOrNull()
+        }
 
         with(sharedTransitionScope) {
             WaveLoading(
@@ -426,10 +449,14 @@ class MediaSessionPlugin(
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
 
             ) {
-                Image(
-                    painter = rememberDrawablePainter(drawable = icon),
-                    contentDescription = null
-                )
+                if (icon != null) {
+                    Image(
+                        painter = rememberDrawablePainter(drawable = icon),
+                        contentDescription = null
+                    )
+                } else {
+                    Icon(imageVector = Icons.Default.MusicNote, contentDescription = "Media")
+                }
             }
         }
     }

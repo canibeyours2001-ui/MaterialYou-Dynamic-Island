@@ -1,5 +1,6 @@
 package fr.angel.dynamicisland
 
+import androidx.core.content.edit
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -91,7 +92,7 @@ class DisclosureActivity : ComponentActivity() {
 					)
 				),
 			)
-			var step by remember { mutableStateOf(0) }
+			var step by remember { mutableIntStateOf(0) }
 
 			DynamicIslandTheme(
 				darkTheme = Theme.instance.isDarkTheme,
@@ -119,7 +120,7 @@ class DisclosureActivity : ComponentActivity() {
 							onNext = { step++ },
 							onPrevious = { step-- },
 							onStart = {
-								settingsPreferences.edit().putBoolean(DISCLOSURE_ACCEPTED, true).apply()
+								settingsPreferences.edit { putBoolean(DISCLOSURE_ACCEPTED, true) }
 								startActivity(Intent(this, MainActivity::class.java))
 								finish()
 							},

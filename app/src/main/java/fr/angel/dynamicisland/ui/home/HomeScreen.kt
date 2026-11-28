@@ -1,11 +1,12 @@
 package fr.angel.dynamicisland.ui.home
 
+import androidx.core.content.edit
 import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
 import android.content.Context.POWER_SERVICE
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -28,6 +29,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.with
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -117,7 +119,6 @@ fun HomeScreen(
     var isCelebrating by remember { mutableStateOf(false) }
 
     // Permissions
-    var isOverlayGranted by remember { mutableStateOf(canDrawOverlays(context)) }
     var isAccessibilityGranted by remember {
         mutableStateOf(
             isAccessibilityServiceEnabled(
@@ -132,9 +133,8 @@ fun HomeScreen(
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             isAccessibilityGranted =
                 isAccessibilityServiceEnabled(IslandOverlayService::class.java, context)
-            isOverlayGranted = canDrawOverlays(context)
 
-            if (isAccessibilityGranted && isOverlayGranted) {
+            if (isAccessibilityGranted) {
                 isCelebrating = true
                 Handler(Looper.getMainLooper()).postDelayed({
                     isCelebrating = false
@@ -182,9 +182,7 @@ fun HomeScreen(
     ) {
         item {
             PermissionsCard(
-                isOverlayGranted = isOverlayGranted,
                 isAccessibilityGranted = isAccessibilityGranted,
-                startForResult = startForPermissionResult,
                 switchAccessibility = { switchAccessibilityService() }
             )
         }
@@ -203,7 +201,7 @@ fun HomeScreen(
                 DisclosureCard(
                     onAcceptClick = {
                         disclosureAccepted = true
-                        settingsPreferences.edit().putBoolean(DISCLOSURE_ACCEPTED, true).apply()
+                        settingsPreferences.edit { putBoolean(DISCLOSURE_ACCEPTED, true) }
                     },
                     onShowClick = onShowDisclosureClick
                 )
@@ -228,8 +226,7 @@ fun HomeScreen(
                     startForResult = startForBatteryOptimizationResult,
                     onDismiss = {
                         optimizationDismissed = true
-                        settingsPreferences.edit().putBoolean(BATTERY_OPTIMIZATION_DISMISSED, true)
-                            .apply()
+                        settingsPreferences.edit { putBoolean(BATTERY_OPTIMIZATION_DISMISSED, true) }
                     }
                 )
             }
@@ -396,32 +393,16 @@ fun ServiceStatusCard(
                     .fillMaxHeight(),
                 targetState = isAccessibilityGranted,
                 transitionSpec = {
-                    if (isAccessibilityGranted) {
-                        slideInHorizontally { width -> -width } + fadeIn() with
-                                slideOutHorizontally { width -> -width } + fadeOut()
-                    } else {
-                        slideInHorizontally { width -> -width } + fadeIn() with
-                                slideOutHorizontally { width -> -width } + fadeOut()
-                    }
-                }
-            ) {
-                Crossfade(
-                    targetState = isAccessibilityGranted,
-                ) {
-                    if (it) {
-                        LottieAnimation(
-                            composition = compositionEnabled,
-                            iterations = LottieConstants.IterateForever,
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        LottieAnimation(
-                            composition = compositionDisabled,
-                            iterations = LottieConstants.IterateForever,
-                            contentScale = ContentScale.Crop,
-                        )
-                    }
-                }
+                    (slideInHorizontally { width -> -width } + fadeIn())
+                        .togetherWith(slideOutHorizontally { width -> width } + fadeOut())
+                },
+                label = "accessibility-state"
+            ) { granted ->
+                LottieAnimation(
+                    composition = if (granted) compositionEnabled else compositionDisabled,
+                    iterations = LottieConstants.IterateForever,
+                    contentScale = ContentScale.Crop
+                )
             }
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -433,10 +414,10 @@ fun ServiceStatusCard(
                 targetState = isAccessibilityGranted,
                 transitionSpec = {
                     if (isAccessibilityGranted) {
-                        slideInVertically { height -> height } + fadeIn() with
+                        slideInVertically { height -> height } + fadeIn() togetherWith
                                 slideOutVertically { height -> -height } + fadeOut()
                     } else {
-                        slideInVertically { height -> -height } + fadeIn() with
+                        slideInVertically { height -> -height } + fadeIn() togetherWith
                                 slideOutVertically { height -> height } + fadeOut()
                     }.using(
                         SizeTransform(clip = false)
@@ -515,7 +496,7 @@ fun OptimizationCard(
                         startForResult.launch(
                             Intent().apply {
                                 action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-                                data = Uri.parse("package:${context.packageName}")
+                                data = "package:${context.packageName}".toUri()
                             }
                         )
                     }
@@ -527,10 +508,6 @@ fun OptimizationCard(
     }
 }
 
-
-fun canDrawOverlays(context: Context): Boolean {
-    return Settings.canDrawOverlays(context)
-}
 
 fun isAccessibilityServiceEnabled(service: Class<*>, context: Context): Boolean {
     val expectedComponentName = ComponentName(context, service)
@@ -554,80 +531,27 @@ fun isAccessibilityServiceEnabled(service: Class<*>, context: Context): Boolean 
 
 @Composable
 fun PermissionsCard(
-    isOverlayGranted: Boolean,
     isAccessibilityGranted: Boolean,
-    startForResult: ManagedActivityResultLauncher<Intent, ActivityResult>,
     switchAccessibility: () -> Unit,
 ) {
-    OutlinedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min)
-    ) {
+    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (isOverlayGranted) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.SettingsAccessibility,
-                        contentDescription = null
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Accessibility permission",
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center
-                    )
-                    Switch(
-                        checked = isAccessibilityGranted,
-                        onCheckedChange = { switchAccessibility() },
-                    )
-
-                }
-                Divider(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .fillMaxHeight(),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .animateContentSize(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Layers,
-                    contentDescription = null
-                )
-                Spacer(modifier = Modifier.width(8.dp))
+            Icon(Icons.Default.SettingsAccessibility, contentDescription = null)
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Enable Dynamic Island", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    text = "Overlay permission",
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center
-                )
-                Switch(
-                    checked = isOverlayGranted,
-                    onCheckedChange = {
-                        startForResult.launch(
-                            Intent(
-                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                Uri.parse("package:$packageName")
-                            ), null
-                        )
-                    }
+                    "Uses a standard Android accessibility overlay, without root or drawing over other apps permission.",
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
+            Switch(
+                checked = isAccessibilityGranted,
+                onCheckedChange = { switchAccessibility() }
+            )
         }
     }
 }

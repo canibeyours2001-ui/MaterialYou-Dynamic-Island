@@ -1,6 +1,6 @@
 package fr.angel.dynamicisland.ui.theme.themes
 
-import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.Color
 
 val md_theme_black_primary = Color(0xFFE1E3E3)
@@ -37,7 +37,7 @@ val md_theme_black_scrim = Color(0xFF000000)
 
 val black_seed = Color(0xFF6750A4)
 
-val BlackTheme = ColorScheme(
+val BlackTheme = darkColorScheme(
 	primary = md_theme_black_primary,
 	onPrimary = md_theme_black_onPrimary,
 	primaryContainer = md_theme_black_primaryContainer,

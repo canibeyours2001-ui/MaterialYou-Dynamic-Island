@@ -1,0 +1,94 @@
+name: Signed Android Release
+on:
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: write
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    # Public distribution requires confirmed redistribution rights.
+    if: ${{ vars.RELEASE_RIGHTS_CONFIRMED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate tag and stable-release approval
+        shell: bash
+        env:
+          STABLE_APPROVED: ${{ vars.STABLE_RELEASE_APPROVED }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          grep -F "versionName '${VERSION}'" app/build.gradle >/dev/null
+          if [[ ! "$VERSION" =~ -(alpha|beta|rc)(\.|-)? ]]; then
+            [[ "$STABLE_APPROVED" == "true" ]] || { echo "::error::Stable release needs STABLE_RELEASE_APPROVED=true"; exit 1; }
+          fi
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Android SDK 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -1)"
+          test -n "$SDKMANAGER"
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Configure release keystore (secrets only)
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for secret in KEYSTORE_B64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            [[ -n "${!secret}" ]] || { echo "::error::Missing secret: $secret"; exit 1; }
+          done
+          install -d -m 700 "$RUNNER_TEMP/android-signing"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/android-signing/release.keystore"
+          chmod 600 "$RUNNER_TEMP/android-signing/release.keystore"
+          echo "RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/android-signing/release.keystore" >> "$GITHUB_ENV"
+          echo "RELEASE_KEYSTORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "RELEASE_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "RELEASE_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+      - name: Build, test, lint, and sign
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+      - name: Verify signature and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="app/build/outputs/apk/release/app-release.apk"
+          [[ -s "$SRC" ]] || { echo "::error::Signed APK not found"; exit 1; }
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$SRC"
+          mkdir -p dist
+          VERSION="${GITHUB_REF_NAME#v}"
+          APK="MaterialYou-Dynamic-Island-${VERSION}-universal.apk"
+          cp "$SRC" "dist/$APK"
+          (cd dist && sha256sum "$APK" > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-android-release
+          path: dist/
+          if-no-files-found: error
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          EXTRA=""
+          if [[ "$VERSION" =~ -(alpha|beta|rc)(\.|-)? ]]; then EXTRA="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" dist/*.apk dist/SHA256SUMS.txt --title "Material You Dynamic Island $GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md $EXTRA

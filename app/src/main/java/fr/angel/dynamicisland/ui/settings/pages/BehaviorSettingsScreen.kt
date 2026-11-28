@@ -1,6 +1,7 @@
 package fr.angel.dynamicisland.ui.settings.pages
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
@@ -15,7 +16,9 @@ import fr.angel.dynamicisland.island.IslandSettings
 
 @Composable
 fun BehaviorSettingsScreen() {
-	LazyColumn(
+    val context = LocalContext.current
+    val settings = IslandSettings.instance
+    LazyColumn(
 		modifier = Modifier
 			.fillMaxSize(),
 		contentPadding = PaddingValues(16.dp)
@@ -25,15 +28,74 @@ fun BehaviorSettingsScreen() {
 				title = "Show on lock screen",
 				description = "Show the island on the lock screen and on the always-on display",
 				checked = IslandSettings.instance.showOnLockScreen
-			) { IslandSettings.instance.showOnLockScreen = it }
+			) {
+                    settings.showOnLockScreen = it
+                    settings.applySettings(context)
+                }
 		}
 		item {
 			SwitchSettingsItem(
 				title = "Show in landscape",
 				description = "Show island in landscape mode",
 				checked = IslandSettings.instance.showInLandscape
-			) { IslandSettings.instance.showInLandscape = it }
+			) {
+                    settings.showInLandscape = it
+                    settings.applySettings(context)
+                }
 		}
+        item {
+            SwitchSettingsItem(
+                title = "Reduced motion",
+                description = "Disable spring animations to reduce motion and rendering work",
+                checked = settings.reducedMotion
+            ) {
+                settings.reducedMotion = it
+                settings.applySettings(context)
+            }
+        }
+        item {
+            SwitchSettingsItem(
+                title = "Automatically align with camera",
+                description = "Center the island on the camera cutout if Android exposes it",
+                checked = settings.autoAlignCutout
+            ) {
+                settings.autoAlignCutout = it
+                settings.applySettings(context)
+            }
+        }
+        item {
+            SwitchSettingsItem(
+                title = "Haptic feedback",
+                description = "Gentle feedback on expansion and activity switching",
+                checked = settings.hapticFeedback
+            ) {
+                settings.hapticFeedback = it
+                settings.applySettings(context)
+            }
+        }
+        item {
+            SwitchSettingsItem(
+                title = "Show idle island",
+                description = "Keep a small pill visible even without an active activity",
+                checked = settings.showIdleIsland
+            ) {
+                settings.showIdleIsland = it
+                settings.applySettings(context)
+            }
+        }
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            SettingsSlider(
+                onValueChange = { settings.animationSpeed = it },
+                onReset = { settings.animationSpeed = 1f },
+                roundedTo = 1,
+                preciseValue = 0.1f,
+                title = "Animation responsiveness",
+                extension = "x",
+                value = settings.animationSpeed,
+                range = 0.5f..2f
+            )
+        }
 		item {
 			Spacer(modifier = Modifier.height(16.dp))
 			SettingsSlider(
