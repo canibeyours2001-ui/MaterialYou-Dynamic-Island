@@ -18,3 +18,17 @@ before/after commit SHA and observed variance. Compare like for like; no invente
 ## Verified baseline — CI run 46096704837 (2026-11-28)
 
 The `checks` job passed compilation, unit tests, debug/release/R8 builds, lint and APK signature verification. The Android 15 `emulator-smoke` job passed the instrumented test, minified QA APK installation and startup smoke. Lint: **0 errors, 10 warnings**, primarily newer-SDK/dependency notices. The CI APK SHA-256 matched independently after download. No P95/P99 frame-pacing, thermal, battery or physical-device measurements are available; do not make numerical performance claims. Follow-up source changes must pass a new run before being marked verified.
+
+## Raw emulator smoke measurements (run 46096704837)
+
+| Measurement | Value | Caveat |
+| --- | --- | --- |
+| Emulator | Android 15, Pixel 6 profile | Not a physical phone |
+| `am start -W` cold launch | 1,368 ms | Redirects to `DisclosureActivity`, not active island |
+| `dumpsys meminfo` total PSS | 34,779 KiB | First-launch idle/disclosure state |
+| `dumpsys meminfo` total RSS | 137,416 KiB | First-launch idle/disclosure state |
+| `gfxinfo` frames sampled | 3 | Insufficient for a frame pacing distribution |
+| `gfxinfo` janky frames | 2 / 3 | **Not representative** of actual island animation |
+| AndroidRuntime fatal exceptions | 0 captured | Only during launch smoke window |
+
+The screenshot confirms that initial launch displays the onboarding/disclosure screen. Thus the Android 15 CI smoke establishes launch viability but cannot support fluidity or battery efficiency claims; a real island overlay requires the user's explicit accessibility and notification permissions. Run instrumentation that explicitly accepts disclosure *only in the test environment* before using the main activity for additional smoke validation.
