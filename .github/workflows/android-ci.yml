@@ -56,6 +56,31 @@ jobs:
           test -s "$QA"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$QA"
           (cd app/build/outputs/apk/qaRelease && sha256sum app-qaRelease.apk > SHA256SUMS.txt)
+      # Only encrypted blobs are archived for public-repository test builds.
+      # The recipient private key MUST NOT be committed or added to CI secrets.
+      - name: Encrypt private test APKs for the intended recipient
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p encrypted-artifacts
+          for variant in debug qaRelease; do
+            APK="app/build/outputs/apk/$variant/app-$variant.apk"
+            [[ -s "$APK" ]]
+            openssl cms -encrypt -binary -aes-256-cbc -outform DER \
+              -recip .github/test-apk-recipient.crt \
+              -in "$APK" -out "encrypted-artifacts/$variant.apk.p7m"
+            echo "Plaintext SHA256 ($variant):"
+            sha256sum "$APK"
+          done
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: encrypted-android-testing
+          path: encrypted-artifacts/*.p7m
+          if-no-files-found: error
+          retention-days: 3
+
       # Public GitHub repositories do not provide private artifact access.
       # Only private repositories may upload debug or QA APKs.
       - uses: actions/upload-artifact@v4
