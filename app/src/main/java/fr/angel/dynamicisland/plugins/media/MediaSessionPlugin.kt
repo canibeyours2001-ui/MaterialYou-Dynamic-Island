@@ -172,11 +172,11 @@ class MediaSessionPlugin(
         var isDragging by remember { mutableStateOf(false) }
         var draggedPosition by remember { mutableFloatStateOf(0f) }
 
-        LaunchedEffect(controller.playbackState?.position) {
+        LaunchedEffect(controller.playbackState?.position, controller.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION)) {
             elapsed = controller.playbackState?.position ?: 0
             duration = controller.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0
 
-            songPosition = if (duration > 0) (elapsed / duration.toFloat() * 100).coerceIn(0f, 100f) else 0f
+            songPosition = MediaProgress.percent(elapsed, duration)
         }
 
         with(sharedTransitionScope) {
@@ -419,16 +419,20 @@ class MediaSessionPlugin(
             return
         }
 
-        LaunchedEffect(mediaCallback.mediaStruct.playbackState.value.position) {
+        LaunchedEffect(mediaCallback.mediaStruct.playbackState.value.position, mediaCallback.mediaStruct.duration.value) {
             elapsed = mediaCallback.mediaStruct.playbackState.value.position
             duration = mediaCallback.mediaStruct.duration.value
 
-            songPosition = (elapsed / duration.toFloat()) * 100
+            songPosition = MediaProgress.percent(elapsed, duration)
         }
 
-        val icon = context.packageManager.getApplicationIcon(
-            mediaCallback.mediaController.packageName ?: "fr.angel.dynamicisland"
-        )
+        val icon = remember(mediaCallback.mediaController.packageName) {
+            runCatching {
+                context.packageManager.getApplicationIcon(
+                    mediaCallback.mediaController.packageName ?: "fr.angel.dynamicisland"
+                )
+            }.getOrNull()
+        }
 
         with(sharedTransitionScope) {
             WaveLoading(
@@ -445,10 +449,14 @@ class MediaSessionPlugin(
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
 
             ) {
-                Image(
-                    painter = rememberDrawablePainter(drawable = icon),
-                    contentDescription = null
-                )
+                if (icon != null) {
+                    Image(
+                        painter = rememberDrawablePainter(drawable = icon),
+                        contentDescription = null
+                    )
+                } else {
+                    Icon(imageVector = Icons.Default.MusicNote, contentDescription = "Media")
+                }
             }
         }
     }
