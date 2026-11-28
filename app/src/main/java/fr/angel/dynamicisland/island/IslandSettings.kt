@@ -53,6 +53,8 @@ class IslandSettings {
             putBoolean(SHOW_BORDER, showBorders)
             putBoolean(REDUCED_MOTION, reducedMotion)
             putBoolean(SHOW_IDLE_ISLAND, showIdleIsland)
+            putBoolean(HAPTIC_FEEDBACK, hapticFeedback)
+            putBoolean(AUTO_ALIGN_CUTOUT, autoAlignCutout)
             putFloat(ANIMATION_SPEED, animationSpeed)
             putString(GRAVITY, gravity.name)
         }
@@ -70,6 +72,7 @@ class IslandSettings {
         showOnLockScreen = settings.getBoolean(SHOW_ON_LOCK_SCREEN, false)
         showInLandscape = settings.getBoolean(SHOW_IN_LANDSCAPE, false)
         autoHideOpenedAfter = settings.getFloat(AUTO_HIDE_OPENED_AFTER, 5000f)
+            .takeIf { it.isFinite() }?.coerceIn(500f, 60000f) ?: 5000f
         showBorders = settings.getBoolean(SHOW_BORDER, false)
         reducedMotion = settings.getBoolean(REDUCED_MOTION, false)
         hapticFeedback = settings.getBoolean(HAPTIC_FEEDBACK, true)

@@ -23,3 +23,11 @@ New keystore **cannot update** an APK signed with the upstream/original develope
 
 ## Manual device QA before stable
 Verify installation, startup, notification access, accessibility disclosure and overlay, denied permissions, media controls, battery charging, rapid notification bursts, rotation, lock screen, Xiaomi HyperOS background process behavior, memory and ANR reports, and update-over-previous-release.
+
+## Confidential development APKs
+
+The repository is public, so GitHub Actions artifacts are not private distribution. CI uploads APK artifacts **only when the repository is private**. Lint reports remain available. Use a genuinely access-controlled channel for derivative test APKs while redistribution permission remains unresolved. Older public CI artifacts must be deleted by a repository administrator (GitHub Actions artifacts UI or authenticated GitHub API); changing workflow conditions does not delete historical artifacts.
+
+## New release key generation
+
+On a secured computer: `keytool -genkeypair -v -keystore materialyou-release.jks -storetype PKCS12 -alias materialyou -keyalg RSA -keysize 3072 -validity 10000`. Back up the keystore offline; never commit it. Add GitHub repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. On macOS encode the keystore using `base64 < materialyou-release.jks | tr -d '\\n'`; on Linux use `base64 -w0 materialyou-release.jks`. Leave release approval variables disabled until authorization and device QA are complete. An APK signed by a new key normally cannot update an app installed under the upstream author's signing key.

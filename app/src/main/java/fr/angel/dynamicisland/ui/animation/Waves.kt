@@ -35,13 +35,14 @@ fun WavesLoadingIndicator(modifier: Modifier, color: Color, progress: Float) {
 			color,
 			density
 		) {
-			value = withContext(Dispatchers.Default) {
-				createWavesShader(
-					width = with(density) { constraintsWidth.roundToPx() },
-					height = with(density) { constraintsHeight.roundToPx() },
-					color = color
-				)
-			}
+			val widthPx = with(density) { constraintsWidth.roundToPx() }
+            val heightPx = with(density) { constraintsHeight.roundToPx() }
+            // Constraint changes can temporarily produce a zero-sized overlay.
+            value = if (widthPx > 0 && heightPx > 0) {
+                withContext(Dispatchers.Default) {
+                    createWavesShader(width = widthPx, height = heightPx, color = color)
+                }
+            } else null
 		}
 
 		if (progress > 0f && wavesShader != null) {

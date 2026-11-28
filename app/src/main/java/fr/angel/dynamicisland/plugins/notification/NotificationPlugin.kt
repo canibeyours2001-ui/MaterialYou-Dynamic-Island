@@ -156,10 +156,8 @@ class NotificationPlugin(
         val context = LocalContext.current
         val keyboardController = LocalSoftwareKeyboardController.current
 
-        // Timer cancellation is an effect, not an operation on every recomposition.
-        LaunchedEffect(meta.statusBarNotification.key) {
-            handler.removeCallbacksAndMessages(null)
-        }
+        // Preserve the auto-hide timer scheduled by the notification receiver.
+        // Cancelling it at first composition kept the card visible indefinitely.
 
         val dismissState = rememberSwipeToDismissBoxState(
             confirmValueChange = {

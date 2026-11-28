@@ -108,6 +108,8 @@ class IslandOverlayService : AccessibilityService(), PluginHost {
         cleanedUp = false
         setTheme(R.style.Theme_DynamicIsland)
         instance = this
+        Island.isInLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        Island.isScreenOn = (getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isInteractive
         settingsPreferences = getSharedPreferences(SETTINGS_KEY, Context.MODE_PRIVATE)
 
         // Register broadcast receiver

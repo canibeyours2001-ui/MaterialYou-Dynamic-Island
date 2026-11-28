@@ -88,7 +88,11 @@ class MediaSessionPlugin(
 
     private val listenerForActiveSessions =
         OnActiveSessionsChangedListener { controllers ->
-            if (controllers != null) {
+            if (controllers == null) {
+                callbackMap.values.toList().forEach { it.dispose() }
+                callbackMap.clear()
+                host?.requestDismiss(this)
+            } else {
                 val currentTokens = controllers.map { it.sessionToken.toString() }.toSet()
                 callbackMap.keys.toList().filter { it !in currentTokens }.forEach { stale ->
                     callbackMap.remove(stale)?.dispose()

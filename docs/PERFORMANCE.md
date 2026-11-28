@@ -14,3 +14,7 @@ overlay by default, but those are implementation properties, not benchmark resul
 
 Record device, Android build, refresh rate, test scenario, measurement count, mean/P95,
 before/after commit SHA and observed variance. Compare like for like; no invented numbers.
+
+## Verified baseline — CI run 46096704837 (2026-11-28)
+
+The `checks` job passed compilation, unit tests, debug/release/R8 builds, lint and APK signature verification. The Android 15 `emulator-smoke` job passed the instrumented test, minified QA APK installation and startup smoke. Lint: **0 errors, 10 warnings**, primarily newer-SDK/dependency notices. The CI APK SHA-256 matched independently after download. No P95/P99 frame-pacing, thermal, battery or physical-device measurements are available; do not make numerical performance claims. Follow-up source changes must pass a new run before being marked verified.

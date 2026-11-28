@@ -56,8 +56,10 @@ jobs:
           test -s "$QA"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$QA"
           (cd app/build/outputs/apk/qaRelease && sha256sum app-qaRelease.apk > SHA256SUMS.txt)
+      # Public GitHub repositories do not provide private artifact access.
+      # Only private repositories may upload debug or QA APKs.
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: ${{ always() && github.event.repository.private }}
         with:
           name: android-builds-for-testing
           path: |
